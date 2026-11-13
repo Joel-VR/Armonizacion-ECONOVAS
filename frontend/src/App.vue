@@ -1,40 +1,120 @@
 <script setup lang="ts">
-import { ref, computed, nextTick, watch, onMounted, onUnmounted } from 'vue'
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
-import { mountChart } from './Chart'
-import type { Root } from 'react-dom/client'
-const view = ref('mapa')
-const month = ref(8)
-const year = ref(2025)
-const selected = ref(12)
-const satellite = ref('Ambos')
-const period = ref('Últimos 7 días')
-const confidence = ref('Todas')
-const showPoints = ref(true)
-const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
-const days = computed(() => new Date(year.value, month.value + 1, 0).getDate())
-const offset = computed(() => (new Date(year.value, month.value, 1).getDay() + 6) % 7)
-const level = (day: number) => (day * 7 + month.value * 3) % 4
-const activity = computed(() => ['Baja','Moderada','Alta','Muy alta'][level(selected.value)])
-const points: [number,number,string][] = [[-9.93,-76.24,'Huánuco'],[-6.48,-76.37,'San Martín'],[-12.59,-69.19,'Madre de Dios'],[-13.52,-71.97,'Cusco'],[-8.38,-74.55,'Ucayali'],[-5.71,-78.81,'Amazonas'],[-11.16,-75.99,'Junín'],[-3.75,-73.25,'Loreto']]
-let map: L.Map | undefined
-let markers: L.LayerGroup | undefined
-let chart: Root | undefined
-function initMap() { const el = document.getElementById('map'); if (!el) return; map = L.map(el,{zoomControl:false}).setView([-9.19,-75.02],5); L.control.zoom({position:'bottomright'}).addTo(map); L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{attribution:'&copy; OpenStreetMap contributors &copy; CARTO',maxZoom:19}).addTo(map); markers = L.layerGroup().addTo(map); updateMarkers() }
-function updateMarkers() { if (!markers) return; markers.clearLayers(); if (!showPoints.value) return; points.forEach(([lat,lng,name],i) => L.circleMarker([lat,lng],{radius:8+i%3,color:'#fff',weight:2,fillColor:i%3===0?'#d94d36':'#f39a45',fillOpacity:.9}).bindPopup('<strong>'+name+'</strong><br>Detección simulada').addTo(markers!)) }
-watch(showPoints,updateMarkers)
-watch([month,year],()=>{ if(selected.value>days.value) selected.value=days.value })
-watch(view, async () => { map?.remove(); map=undefined; chart?.unmount(); chart=undefined; await nextTick(); if(view.value==='mapa') initMap(); if(view.value==='historico') { const el=document.getElementById('chart'); if(el) chart=mountChart(el) } })
-onMounted(initMap)
-onUnmounted(()=>{map?.remove();chart?.unmount()})
+import { ref, defineAsyncComponent } from 'vue'
+import {
+  Map,
+  CalendarDays,
+  ChartNoAxesCombined,
+  FlaskConical,
+  Clock3,
+  ChevronDown,
+  Info,
+  Satellite,
+  ShieldCheck,
+} from '@lucide/vue'
+import MapView from './components/MapView.vue'
+import { periodLabels, type Period } from './data'
+const CalendarView = defineAsyncComponent(() => import('./components/CalendarView.vue'))
+const HistoryView = defineAsyncComponent(() => import('./components/HistoryView.vue'))
+const view = ref('map')
+const period = ref<Period>('week')
+const nav = [
+  { id: 'map', title: 'Mapa principal', icon: Map },
+  { id: 'calendar', title: 'Calendario', icon: CalendarDays },
+  { id: 'history', title: 'Análisis histórico', icon: ChartNoAxesCombined },
+]
 </script>
 <template>
-<div class="app-shell">
-<header class="topbar"><a class="brand" href="#" @click.prevent="view='mapa'"><span class="brand-mark">✳</span><span>IGNIS<span class="brand-accent">TERRA</span><small>MONITOREO AMBIENTAL</small></span></a><nav aria-label="Navegación principal"><button :class="{active:view==='mapa'}" @click="view='mapa'"><span>◈</span> Mapa principal</button><button :class="{active:view==='calendario'}" @click="view='calendario'"><span>▦</span> Calendario</button><button :class="{active:view==='historico'}" @click="view='historico'"><span>▥</span> Análisis histórico</button></nav><div class="header-right"><span class="live-dot"></span> EXPLORADOR <span class="header-country">🇵🇪 Perú</span></div></header>
-<main><div class="page-heading"><div><div class="breadcrumb">PLATAFORMA DE MONITOREO <span>/</span> {{ view === 'mapa' ? 'MAPA PRINCIPAL' : view === 'calendario' ? 'CALENDARIO' : 'ANÁLISIS HISTÓRICO' }}</div><h1>{{ view === 'mapa' ? 'El territorio, más cerca.' : view === 'calendario' ? 'Cada día cuenta.' : 'Entender el pasado.' }}</h1><p>{{ view === 'mapa' ? 'Explora las detecciones térmicas y conoce lo que sucede en el Perú.' : view === 'calendario' ? 'Explora la actividad térmica día a día en el territorio peruano.' : 'Observa patrones y compara la actividad térmica a través del tiempo.' }}</p></div><div class="demo-badge"><span>✦</span> VISTA DEMOSTRATIVA <small>Datos ficticios</small></div></div>
-<div v-if="view==='mapa'" class="map-layout"><aside class="panel filters"><div class="panel-heading"><div><div class="kicker">PERSONALIZA TU VISTA</div><h2>Filtros del mapa</h2></div><span class="icon-box">☷</span></div><div class="divider"></div><label>Satélite</label><div class="segmented"><button v-for="s in ['MODIS','VIIRS','Ambos']" :key="s" :class="{chosen:satellite===s}" @click="satellite=s">{{ s }}</button></div><label for="period">Periodo</label><select id="period" v-model="period"><option>Últimos 7 días</option><option>Últimas 24 horas</option><option>Últimos 30 días</option></select><label for="confidence">Nivel de confianza</label><select id="confidence" v-model="confidence"><option>Todas</option><option>Alta</option><option>Nominal</option></select><div class="divider"></div><label>Capas del mapa</label><label class="check"><input type="checkbox" v-model="showPoints"> <span>Puntos de calor<small>Detecciones simuladas</small></span></label><div class="filter-note">ⓘ Los filtros son ilustrativos en esta versión. La capa de puntos puede activarse o desactivarse.</div></aside><section class="map-content"><div class="stats"><article class="stat"><div class="stat-icon orange">⌁</div><div><span>DETECCIONES SIMULADAS</span><strong>1,428</strong><small>En los últimos 7 días</small></div><b>↗ 12%</b></article><article class="stat"><div class="stat-icon green">◎</div><div><span>REGIONES MONITOREADAS</span><strong>24 <em>/ 24</em></strong><small>Cobertura nacional</small></div><b class="green-text">PERÚ</b></article><article class="stat"><div class="stat-icon yellow">◉</div><div><span>ACTIVIDAD SIMULADA</span><strong>Moderada</strong><small>Panorama general</small></div></article></div><div class="map-card"><div class="map-title"><div><h2>Mapa de actividad térmica</h2><p>Explora las detecciones simuladas en el territorio</p></div><span class="map-chip"><span class="live-dot"></span> PERÚ</span></div><div id="map" aria-label="Mapa interactivo de Perú con detecciones simuladas"></div><div class="map-legend"><strong>ACTIVIDAD</strong><span><i class="dot low"></i> Moderada</span><span><i class="dot high"></i> Alta</span><small>Datos de ejemplo · No representan eventos reales</small></div></div></section></div>
-<section v-else-if="view==='calendario'" class="calendar-layout"><div class="panel calendar"><div class="section-head"><div><div class="kicker">EXPLORA POR FECHA</div><h2>Calendario de actividad</h2><p>Selecciona un día para consultar su actividad simulada.</p></div><span class="map-chip">🇵🇪 Perú</span></div><div class="calendar-controls"><select v-model.number="month" aria-label="Mes"><option v-for="(name,i) in monthNames" :key="name" :value="i">{{ name }}</option></select><select v-model.number="year" aria-label="Año"><option :value="2024">2024</option><option :value="2025">2025</option><option :value="2026">2026</option></select></div><div class="calendar-grid weekdays"><span v-for="d in ['LUN','MAR','MIÉ','JUE','VIE','SÁB','DOM']" :key="d">{{ d }}</span></div><div class="calendar-grid dates"><span v-for="n in offset" :key="'empty'+n"></span><button v-for="day in days" :key="day" :class="['level-'+level(day),{selected:selected===day}]" @click="selected=day"><span>{{ day }}</span><i></i></button></div><div class="calendar-legend"><span>Nivel de actividad</span><span v-for="(name,i) in ['Baja','Moderada','Alta','Muy alta']" :key="name"><i :class="'level-'+i"></i>{{ name }}</span></div></div><aside class="panel day-detail"><div class="kicker">DETALLE DEL DÍA</div><h2>{{ selected }} de {{ monthNames[month] }}</h2><p>{{ year }} · Perú</p><div class="divider"></div><div class="detail-icon">✳</div><h3>Actividad {{ activity.toLowerCase() }}</h3><p>Resumen de detecciones térmicas para la fecha seleccionada.</p><div class="detail-number">{{ 12 + level(selected) * 17 }} <small>detecciones simuladas</small></div><div class="filter-note">ⓘ Información ficticia para visualizar el funcionamiento del calendario.</div></aside></section>
-<section v-else class="history"><div class="panel history-filters"><div><div class="kicker">CONFIGURA TU CONSULTA</div><h2>Panorama histórico</h2><p>Compara tendencias de actividad en el tiempo.</p></div><div class="history-selects"><label>UBICACIÓN<select><option>Todo el Perú</option></select></label><label>AÑO<select><option>2025</option></select></label><label>PERIODO<select><option>Año completo</option></select></label></div></div><div class="history-stats"><article class="panel"><span>DETECCIONES TOTALES</span><strong>3,465</strong><small>↗ 18% frente al año anterior</small></article><article class="panel"><span>MES DE MAYOR ACTIVIDAD</span><strong>Agosto</strong><small>540 detecciones simuladas</small></article><article class="panel"><span>REGIÓN DESTACADA</span><strong>Madre de Dios</strong><small>Actividad simulada más alta</small></article><article class="panel"><span>PROMEDIO MENSUAL</span><strong>289</strong><small>Detecciones por mes</small></article></div><div class="panel chart-panel"><div class="section-head"><div><div class="kicker">EVOLUCIÓN EN EL TIEMPO</div><h2>Actividad térmica mensual</h2><p>Comparación de detecciones simuladas por año.</p></div><span class="map-chip">2024 — 2025</span></div><div id="chart"></div></div></section>
-<div class="disclaimer"><span>ⓘ</span> Prototipo con datos ficticios. Una detección de anomalía térmica no confirma por sí sola un incendio forestal.</div></main><footer><span>© 2025 IGNISTERRA <b>·</b> Monitoreo ambiental</span><span>Hecho para comprender mejor nuestro territorio <b>✳</b></span></footer></div>
+  <a href="#main" class="skip-link">Saltar al contenido</a>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="Brinco Alerta, inicio" @click.prevent="view = 'map'"
+        ><span class="brand-logo"
+          ><img src="/brand/brinco-alerta.png" alt="Conejo bombero de Brinco Alerta" /></span
+        ><span
+          >BRINCO<span class="brand-alert">ALERTA</span><small>OBSERVAR PARA PROTEGER</small></span
+        ></a
+      >
+      <nav aria-label="Navegación principal">
+        <button
+          v-for="item in nav"
+          :key="item.id"
+          :class="{ active: view === item.id }"
+          :aria-current="view === item.id ? 'page' : undefined"
+          @click="view = item.id"
+        >
+          <component :is="item.icon" :size="18" />{{ item.title }}
+        </button>
+      </nav>
+      <span class="demo-indicator"
+        ><FlaskConical :size="15" /><span>PROTOTIPO<small>Datos ficticios</small></span></span
+      >
+    </header>
+    <main id="main">
+      <div class="page-heading">
+        <div>
+          <span class="eyebrow"
+            ><span class="tiny-line" />{{
+              view === 'map'
+                ? 'EXPLORA EL TERRITORIO'
+                : view === 'calendar'
+                  ? 'EXPLORA POR FECHA'
+                  : 'COMPRENDE LOS PATRONES'
+            }}</span
+          >
+          <h1>
+            {{
+              view === 'map'
+                ? 'Incendios forestales y quemas agrícolas'
+                : view === 'calendar'
+                  ? 'Cada día cuenta.'
+                  : 'Una mirada a lo largo del tiempo.'
+            }}
+          </h1>
+          <p>
+            {{
+              view === 'map'
+                ? 'Monitoreo satelital para conocer y proteger nuestro territorio.'
+                : view === 'calendar'
+                  ? 'Consulta las observaciones de ejemplo en el calendario de Perú.'
+                  : 'Explora tendencias de ejemplo sin confundir detecciones con eventos confirmados.'
+            }}
+          </p>
+        </div>
+        <div class="update-status">
+          <Clock3 :size="20" />
+          <div><strong>Última actualización</strong><span>Sin conexión a datos reales</span></div>
+        </div>
+      </div>
+      <template v-if="view === 'map'"
+        ><div class="map-toolbar">
+          <label for="period"><CalendarDays :size="17" />Periodo</label>
+          <div class="select-wrap">
+            <select id="period" v-model="period">
+              <option v-for="(label, key) in periodLabels" :key="key" :value="key">
+                {{ label }}
+              </option></select
+            ><ChevronDown :size="15" />
+          </div>
+          <span class="toolbar-source"
+            ><Satellite :size="16" />MODIS + VIIRS<span class="muted"
+              >Integración en desarrollo</span
+            ></span
+          ><span class="demo-date">Fecha de la demo: 13 nov. 2026</span>
+        </div>
+        <MapView :period="period"
+      /></template>
+      <Suspense v-else
+        ><CalendarView v-if="view === 'calendar'" /><HistoryView v-else /><template #fallback
+          ><div class="view-loading" role="status">Preparando la vista…</div></template
+        ></Suspense
+      >
+    </main>
+    <footer class="app-footer">
+      <p>
+        <Info :size="15" />Una detección satelital no confirma por sí sola un incendio forestal ni
+        una quema agrícola.
+      </p>
+      <span><ShieldCheck :size="14" />Cuidemos lo que nos rodea.</span>
+    </footer>
+  </div>
 </template>
