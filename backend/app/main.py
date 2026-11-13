@@ -11,7 +11,7 @@ app = FastAPI(title='Brinco Alerta API', version='0.2.0')
 
 def connection():
     try:
-        return psycopg.connect(**database_config(), row_factory=dict_row)
+        return psycopg.connect(**database_config(), row_factory=dict_row, options='-c timezone=UTC')
     except ValueError as exc:
         raise HTTPException(503, str(exc)) from exc
     except psycopg.Error:
