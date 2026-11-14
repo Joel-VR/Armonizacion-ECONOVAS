@@ -3,11 +3,37 @@ import unittest
 from pathlib import Path
 from datetime import date
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from app.services.huanuco import percentile, weekly_analysis
+from app.services.huanuco import percentile, weekly_analysis, cell_comparison, departments, geometry
 
 class HuanucoTest(unittest.TestCase):
+    def test_departments_and_lima_components(self):
+        import json
+        regions = departments()
+        self.assertEqual(len(regions), 25)
+        self.assertEqual(len(json.loads(geometry('PE-LIM'))['geometries']), 2)
+        self.assertEqual(regions['PE-HUC']['srid'], 32718)
+        self.assertIn(regions['PE-TUM']['srid'], (32717, 32718))
+        self.assertIn('PE-CAL', regions)
+        with self.assertRaises(ValueError):
+            geometry('PE-INVALID')
+
     def test_empirical_percentile_ties(self):
         self.assertEqual(percentile(2, [1, 2, 2, 4]), .5)
+
+    def test_cell_comparison_and_unavailable_sensor(self):
+        starts = {'MODIS': date(2016, 1, 1), 'VIIRS': date(2016, 1, 1)}
+        ends = {'MODIS': date(2026, 11, 13), 'VIIRS': date(2026, 11, 1)}
+        day = date(2025, 9, 8)
+        result = cell_comparison({('MODIS', day): 2, ('VIIRS', day): 1}, day, starts, ends)
+        self.assertEqual(result['combined'], 1)
+        self.assertEqual(result['sensors']['MODIS']['sample'], 45)
+        only_modis = cell_comparison({('MODIS', day): 2}, day, starts, ends)
+        self.assertIsNone(only_modis['combined'])
+        self.assertEqual(only_modis['sensors']['VIIRS']['ties'], 1)
+        incomplete = cell_comparison({('MODIS', date(2026, 11, 2)): 1}, date(2026, 11, 2), starts, ends)
+        self.assertIsNone(incomplete['combined'])
+        self.assertIsNone(incomplete['sensors']['VIIRS']['days'])
+        self.assertIsNone(cell_comparison({}, date(2025, 12, 29), starts, ends))
 
     def test_reference_excludes_selected_year(self):
         ends = {'MODIS': date(2026, 11, 13), 'VIIRS': date(2026, 11, 1)}

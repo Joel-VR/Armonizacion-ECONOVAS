@@ -34,6 +34,6 @@ En otra terminal:
     npm ci
     npm run dev
 
-Vite redirige /api al puerto 8000. La API ofrece /api/status, /api/fires?start=AAAA-MM-DD&end=AAAA-MM-DD y /api/daily con los mismos parámetros. El rango máximo es de 367 días; /api/fires pagina con limit y offset. El mapa de Huánuco muestra hasta 20.000 puntos y avisa si se truncan; los agregados incluyen todo el intervalo.
+Vite redirige /api al puerto 8000. La API ofrece /api/status, /api/fires?start=AAAA-MM-DD&end=AAAA-MM-DD y /api/daily con los mismos parámetros. El rango máximo es de 367 días; /api/fires pagina con limit y offset. El mapa departamental muestra hasta 20.000 puntos y avisa si se truncan; los agregados incluyen todo el intervalo.
 
 El calendario muestra detecciones y un indicador relativo experimental calculado por sensor; la armonización no está validada. Los datos descargados tienen cobertura geográfica y fechas limitadas; un día sin puntos no confirma ausencia de fuego.
