@@ -1856,3 +1856,12 @@ main {
 .view-enter-active,.view-leave-active { transition: opacity 140ms ease, transform 140ms ease; }.view-enter-from,.view-leave-to { opacity:0; transform:translateY(4px); }
 @media (max-width:700px) { .huanuco-app .map-stage { min-height:530px; }.filter-panel { padding:16px; }.filter-heading { width:100%; }.filter-panel label { flex:1 1 140px; }.huanuco-app .calendar-grid.dates button { min-height:64px; }.week-comparison { grid-template-columns:1fr; } }
 @media (prefers-reduced-motion:reduce) { .huanuco-app *, .huanuco-app *::before, .huanuco-app *::after { transition-duration:0.01ms !important; animation-duration:0.01ms !important; } }
+
+.view-mode { display:flex; align-items:center; flex-wrap:wrap; gap:6px; padding:8px; margin:16px 0 0; background:#edf3ed; border:1px solid #dce8dc; border-radius:12px; width:fit-content; }
+.view-mode > span { font-size:.82rem; font-weight:700; color:#57675b; padding:0 10px; }
+.view-mode button { border:0; border-radius:8px; padding:8px 16px; color:#526558; background:transparent; font-weight:700; cursor:pointer; }
+.view-mode button.active { background:#fff; color:#b62532; box-shadow:0 2px 8px #1b382015; }
+.view-mode small { font-size:.72rem; font-weight:500; }
+.legend-swatch { display:inline-block; width:12px; height:12px; border-radius:3px; margin-right:5px; }
+.calendar-grid.dates button.h-low { background:#e7f4ea; }.calendar-grid.dates button.h-mid { background:#f9efc4; }.calendar-grid.dates button.h-high { background:#f9d9bf; }.calendar-grid.dates button.h-extreme { background:#f3c5c2; }.calendar-grid.dates button.h-missing { background:#eef0ee; }
+.bar.harmonized,.chart-legend i.harmonized { background:#5c8c68; }
