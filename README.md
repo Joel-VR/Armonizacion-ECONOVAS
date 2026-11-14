@@ -4,7 +4,7 @@ Brinco Alerta es un proyecto para explorar observaciones satelitales relacionada
 
 > Una detección de anomalía térmica no confirma por sí sola un incendio ni su causa. El proyecto consulta datos MODIS y VIIRS Suomi cargados en PostgreSQL/PostGIS. El indicador relativo de Huánuco 2016–2026 es experimental y no está validado.
 
-Consulte [instalación y carga de datos](docs/instalacion.md), [arquitectura](docs/arquitectura.md) y [metodología propuesta](docs/armonizacion.md).
+Consulte [instalación y carga de datos](docs/instalacion.md), [arquitectura](docs/arquitectura.md) y [metodología propuesta](docs/armonizacion.md) y [uso de datos por departamento](docs/datos-departamentos-peru.md).
 
 ## Ejecutar el frontend
 
