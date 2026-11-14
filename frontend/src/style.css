@@ -1816,3 +1816,43 @@ main {
     scroll-behavior: auto !important;
   }
 }
+
+/* Huánuco: jerarquía legible y movimiento ligero */
+.huanuco-app { font-size: 16px; }
+.huanuco-app main { max-width: 1680px; }
+.huanuco-app .page-heading h1 { font-size: clamp(2rem, 3vw, 3.35rem); letter-spacing: -.035em; text-wrap: balance; }
+.huanuco-app .page-heading p, .huanuco-app .context-banner, .huanuco-app .filter-explanation { font-size: 1rem; }
+.huanuco-app button, .huanuco-app select, .huanuco-app input { min-height: 44px; }
+.huanuco-app button { transition: transform 140ms ease, background-color 140ms ease, box-shadow 140ms ease, color 140ms ease; }
+.huanuco-app button:active:not(:disabled) { transform: scale(.98); }
+.huanuco-app :focus-visible { outline: 3px solid #e73340; outline-offset: 3px; }
+.filter-panel { display:flex; flex-wrap:wrap; gap:16px 22px; align-items:end; background:#fff; border:1px solid #e9ebed; border-radius:16px; padding:20px 24px; box-shadow:0 5px 20px #17291a0a; }
+.filter-heading { display:flex; align-items:center; gap:10px; font-weight:750; color:#263d2e; margin-right:auto; flex-wrap:wrap; }
+.filter-heading small { flex-basis:100%; font-size:.77rem; color:#7a8580; font-weight:500; padding-left:29px; }
+.filter-panel label, .huanuco-toolbar label, .history-controls label { display:flex; flex-direction:column; gap:6px; font-size:.77rem; font-weight:700; color:#69756f; }
+.huanuco-app select, .huanuco-app input[type=date] { border:1px solid #dfe5e0; border-radius:9px; background:#fafcf9; padding:9px 34px 9px 12px; color:#263d2e; font-size:.91rem; }
+.filter-explanation { color:#758178; margin:10px 2px 20px; line-height:1.45; }
+.huanuco-toolbar label { flex-direction:row; align-items:center; }
+.huanuco-app .map-stage { min-height:650px; }
+.huanuco-app .scope-summary { min-width:240px; }
+.huanuco-app .calendar-grid.dates button { min-height:85px; }
+.huanuco-app .calendar-detail { min-height:500px; }
+.sensor-mini, .week-comparison { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin:22px 0; }
+.sensor-mini > div, .week-comparison > div { background:#f5f8f4; padding:15px; border-radius:12px; display:flex; flex-direction:column; gap:5px; }
+.sensor-mini strong { font-size:1.9rem; color:#203d2a; font-variant-numeric:tabular-nums; }
+.sensor-mini small,.week-comparison small { color:#778279; }
+.week-card { margin:22px 0; border-radius:12px; padding:18px; background:#f4f8f3; line-height:1.55; }
+.week-card p { margin:7px 0; }
+.week-card h3 { margin:10px 0; }
+.weekly-chart { display:flex; gap:3px; align-items:end; min-height:240px; overflow-x:auto; padding:15px 2px 0; }
+.weekly-chart button { border:0; background:transparent; padding:3px; min-width:27px; height:230px; display:flex; flex-direction:column; align-items:center; justify-content:end; border-radius:6px; cursor:pointer; }
+.weekly-chart button:hover,.weekly-chart button.chosen { background:#eef4ee; }
+.weekly-chart .bars { display:flex; align-items:end; justify-content:center; gap:2px; width:100%; height:190px; }
+.weekly-chart .bar { width:8px; min-height:2px; border-radius:4px 4px 0 0; }
+.weekly-chart small { color:#78837c; font-size:.65rem; margin-top:5px; }
+.bar.modis,.chart-legend i.modis { background:#e8aa31; }.bar.viirs,.chart-legend i.viirs { background:#e64343; }
+.chart-legend { display:flex; gap:20px; padding:12px 0; color:#66746b; }.chart-legend span { display:flex; align-items:center; gap:7px; }.chart-legend i { width:11px; height:11px; border-radius:3px; }
+.observation-detail { padding:26px; }.observation-detail > button { float:right; }
+.view-enter-active,.view-leave-active { transition: opacity 140ms ease, transform 140ms ease; }.view-enter-from,.view-leave-to { opacity:0; transform:translateY(4px); }
+@media (max-width:700px) { .huanuco-app .map-stage { min-height:530px; }.filter-panel { padding:16px; }.filter-heading { width:100%; }.filter-panel label { flex:1 1 140px; }.huanuco-app .calendar-grid.dates button { min-height:64px; }.week-comparison { grid-template-columns:1fr; } }
+@media (prefers-reduced-motion:reduce) { .huanuco-app *, .huanuco-app *::before, .huanuco-app *::after { transition-duration:0.01ms !important; animation-duration:0.01ms !important; } }

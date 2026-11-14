@@ -1,119 +1,19 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { ChevronLeft, ChevronRight, CalendarDays, Flame, Satellite, Info } from '@lucide/vue'
-import { detections, dateLabel } from '../data'
-const month = ref(new Date().getUTCMonth())
-const year = ref(new Date().getUTCFullYear())
-const selected = ref(new Date().getUTCDate())
-const months = [
-  'Enero',
-  'Febrero',
-  'Marzo',
-  'Abril',
-  'Mayo',
-  'Junio',
-  'Julio',
-  'Agosto',
-  'Septiembre',
-  'Octubre',
-  'Noviembre',
-  'Diciembre',
-]
-const days = computed(() => new Date(year.value, month.value + 1, 0).getDate())
-const offset = computed(() => (new Date(year.value, month.value, 1).getDay() + 6) % 7)
-const dateKey = (day: number) =>
-  `${year.value}-${String(month.value + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-const observations = (day: number) =>
-  detections.filter((d) => d.country === 'PER' && d.acquiredAt.startsWith(dateKey(day)))
-const chosen = computed(() => observations(selected.value))
-function changeMonth(delta: number) {
-  const date = new Date(year.value, month.value + delta, 1)
-  month.value = date.getMonth()
-  year.value = date.getFullYear()
-  selected.value = 1
-}
-function reset() {
-  const now = new Date()
-  year.value = now.getUTCFullYear()
-  month.value = now.getUTCMonth()
-  selected.value = now.getUTCDate()
-}
+import { computed, ref, watch } from 'vue'
+import { ChevronLeft, ChevronRight, CalendarDays, Info } from '@lucide/vue'
+import type { Analysis } from '../huanuco'
+import { dateText, percent } from '../huanuco'
+const props=defineProps<{analysis:Analysis|null;year:number}>()
+const month=ref(8), selected=ref(props.year+'-09-01')
+watch(() => props.year, year => { month.value=8; selected.value=year+'-09-01' })
+const months=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+const key=(day:number)=>props.year+'-'+String(month.value+1).padStart(2,'0')+'-'+String(day).padStart(2,'0')
+const days=computed(()=>new Date(Date.UTC(props.year,month.value+1,0)).getUTCDate())
+const offset=computed(()=>(new Date(Date.UTC(2026,month.value,1)).getUTCDay()+6)%7)
+const counts=computed(()=>{const m=new Map<string,number>();for(const d of props.analysis?.daily??[])m.set(d.day,(m.get(d.day)??0)+d.detections);return m})
+const dayLabel=(day:number) => { const date=key(day); if(!props.analysis) return 'datos no disponibles'; const available=Object.values(props.analysis.ends).filter(end=>date<=end).length; if(!available) return 'fuera del periodo disponible'; return (counts.value.get(date) ?? 0)+' detecciones registradas'+(available===1?' (un sensor disponible)':'') }
+const selectedRows=computed(()=>props.analysis?.daily.filter(d=>d.day===selected.value)??[])
+const week=computed(()=>props.analysis?.weekly.find(w=>w.start<=selected.value && w.end>=selected.value))
+function change(delta:number){month.value=Math.max(0,Math.min(11,month.value+delta));selected.value=key(1)}
 </script>
-<template>
-  <div class="secondary-view">
-    <div class="context-banner">
-      <span class="badge badge-yellow">Conexión pendiente</span>
-      <p>
-        Perú · La vista aún no está conectada a los datos. Los días vacíos no indican ausencia de incendios.
-      </p>
-    </div>
-    <div class="calendar-layout">
-      <section class="surface calendar-card">
-        <div class="section-title">
-          <div>
-            <span class="eyebrow">CALENDARIO DE OBSERVACIONES</span>
-            <h2>
-              {{ months[month] }} <span class="muted">{{ year }}</span>
-            </h2>
-          </div>
-          <div class="calendar-actions">
-            <button class="button button-outline" @click="reset">Ir a hoy</button
-            ><button class="icon-button" aria-label="Mes anterior" @click="changeMonth(-1)">
-              <ChevronLeft :size="19" /></button
-            ><button class="icon-button" aria-label="Mes siguiente" @click="changeMonth(1)">
-              <ChevronRight :size="19" />
-            </button>
-          </div>
-        </div>
-        <div class="calendar-grid weekdays">
-          <span v-for="day in ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']" :key="day">{{
-            day
-          }}</span>
-        </div>
-        <div class="calendar-grid dates">
-          <span v-for="i in offset" :key="'empty-' + i" /><button
-            v-for="day in days"
-            :key="day"
-            :class="{ selected: selected === day, 'has-data': observations(day).length > 0 }"
-            :aria-pressed="selected === day"
-            :aria-label="`${day} de ${months[month]}: datos no disponibles`"
-            @click="selected = day"
-          >
-            <span>{{ day }}</span><small v-if="observations(day).length"
-              ><i />{{ observations(day).length
-              }}<span class="desktop-label"> observaciones</span></small
-            ><span v-else class="day-empty">—</span>
-          </button>
-        </div>
-        <div class="calendar-key">
-          <span><i />Con observaciones</span
-          ><span>Datos del mes no disponibles</span>
-        </div>
-      </section>
-      <aside class="surface calendar-detail">
-        <span class="eyebrow"><CalendarDays :size="14" />DÍA SELECCIONADO</span>
-        <h2>{{ selected }} de {{ months[month].toLowerCase() }}</h2>
-        <p>{{ year }} · Perú</p>
-        <div class="day-count">
-          <Flame :size="27" /><strong>{{ chosen.length }}</strong
-          ><span>observaciones</span>
-        </div>
-        <div v-if="chosen.length" class="day-observations">
-          <article v-for="d in chosen" :key="d.id">
-            <span class="day-location">{{ d.department }}</span><small
-              ><Satellite :size="12" />{{ d.sensor }} · {{ d.frp.toFixed(1) }} MW</small
-            ><time>{{ dateLabel(d.acquiredAt) }}</time>
-          </article>
-        </div>
-        <div v-else class="news-empty">
-          <CalendarDays :size="28" />
-          <h4>No hay datos para mostrar</h4>
-          <p>La conexión de esta vista con la base de datos está pendiente.</p>
-        </div>
-        <p class="inline-note">
-          <Info :size="15" />Cada registro representa una observación, no un incendio confirmado.
-        </p>
-      </aside>
-    </div>
-  </div>
-</template>
+<template><div class="secondary-view"><div class="context-banner"><span class="badge badge-yellow">HUÁNUCO · {{ year }}</span><p>Los números diarios son detecciones, no incendios. La cobertura del satélite es desconocida.</p></div><div class="calendar-layout"><section class="surface calendar-card"><div class="section-title"><div><span class="eyebrow">CALENDARIO DE OBSERVACIONES</span><h2>{{ months[month] }} <span class="muted">{{ year }}</span></h2></div><div class="calendar-actions"><button class="icon-button" aria-label="Mes anterior" :disabled="month===0" @click="change(-1)"><ChevronLeft :size="20"/></button><button class="icon-button" aria-label="Mes siguiente" :disabled="month===11" @click="change(1)"><ChevronRight :size="20"/></button></div></div><div class="calendar-grid weekdays"><span v-for="d in ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom']" :key="d">{{ d }}</span></div><div class="calendar-grid dates"><span v-for="i in offset" :key="'offset'+i"/><button v-for="day in days" :key="day" :class="{selected:selected===key(day),'has-data':counts.has(key(day))}" :aria-pressed="selected===key(day)" :aria-label="key(day)+': '+dayLabel(day)" @click="selected=key(day)"><span>{{ day }}</span><small v-if="counts.has(key(day))"><i/>{{ counts.get(key(day)) }}</small><span v-else class="day-empty">—</span></button></div><div class="calendar-key"><span><i/>Con detecciones registradas</span><span>Fecha UTC</span></div></section><aside class="surface calendar-detail"><span class="eyebrow"><CalendarDays :size="15"/>DÍA SELECCIONADO</span><h2>{{ dateText(selected) }} {{ year }}</h2><p>Departamento de Huánuco</p><div class="sensor-mini"><div v-for="sensor in ['MODIS','VIIRS']" :key="sensor"><span>{{ sensor }}</span><strong>{{ analysis && selected >= analysis.starts[sensor as 'MODIS' | 'VIIRS'] && selected <= analysis.ends[sensor as 'MODIS' | 'VIIRS'] ? selectedRows.find(r=>r.sensor===sensor)?.detections ?? 0 : '—' }}</strong><small>{{ analysis && selected > analysis.ends[sensor as 'MODIS' | 'VIIRS'] ? 'Fuera del periodo disponible' : 'detecciones registradas' }}</small></div></div><div v-if="week" class="week-card"><span class="eyebrow">SEMANA {{ week.week }} · {{ dateText(week.start) }} – {{ dateText(week.end) }}</span><h3>Actividad observada</h3><p>MODIS: {{ week.sensors.MODIS.cells ?? 'sin datos completos' }} celdas-día · percentil {{ percent(week.sensors.MODIS.percentile) }}</p><p>VIIRS: {{ week.sensors.VIIRS.cells ?? 'sin datos completos' }} celdas-día · percentil {{ percent(week.sensors.VIIRS.percentile) }}</p><p>Combinado experimental: <strong>{{ percent(week.combined) }}</strong></p><p v-if="week.disagreement !== null">Diferencia entre sensores: {{ percent(week.disagreement) }} <strong v-if="week.disagreement > .25">· Discrepan</strong></p><p v-else>No comparable: semana incompleta o referencia con muchos empates.</p></div><p class="inline-note"><Info :size="15"/>Un día sin registros puede reflejar falta de observación útil.</p></aside></div></div></template>
