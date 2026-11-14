@@ -10,4 +10,6 @@ GET /api/huanuco/analysis acepta year (2016–2026), grid (2, 5 o 10), confidenc
 
 Para los años 2016–2024, la referencia estacional excluye todas las semanas que se solapan con el año consultado. Las semanas que cruzan el límite del año se marcan incompletas.
 
-GET /api/huanuco/cells acepta start (lunes de una semana ISO completa dentro del año), grid (2, 5 o 10), confidence y fire_type. Devuelve geometrías recortadas a Huánuco para las celdas con detecciones en la semana y un índice experimental por celda, calculado con la referencia estacional de cada sensor; null significa no comparable. Las celdas sin detecciones no se muestran y no prueban ausencia de fuego o cobertura.
+GET /api/huanuco/cells (compatibilidad con Huánuco) acepta start (lunes de una semana ISO completa dentro del año), grid (2, 5 o 10), confidence y fire_type. Devuelve geometrías recortadas a Huánuco para las celdas con detecciones en la semana y un índice experimental por celda, calculado con la referencia estacional de cada sensor; null significa no comparable. Las celdas sin detecciones no se muestran y no prueban ausencia de fuego o cobertura.
+
+GET /api/departments devuelve los 25 ámbitos disponibles y la zona UTM de cada uno. GET /api/departments/{code}/analysis, /points y /cells aceptan los mismos parámetros que sus equivalentes /api/huanuco; estos se conservan por compatibilidad. Lima une Lima y Lima Metropolitana; Callao se consulta por separado. Los JSON originales no documentan el polígono de descarga, por lo que la cobertura de cada departamento es desconocida.

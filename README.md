@@ -2,7 +2,7 @@
 
 Brinco Alerta es un proyecto para explorar observaciones satelitales relacionadas con el estudio de incendios forestales y quemas agrícolas, con un enfoque inicial en Huánuco y Perú. Reúne una interfaz web, una API y un pipeline para importar observaciones JSON de NASA FIRMS. Su identidad visual utiliza un conejo bombero como símbolo de protección de la vida silvestre.
 
-> Una detección de anomalía térmica no confirma por sí sola un incendio ni su causa. El proyecto consulta datos MODIS y VIIRS Suomi cargados en PostgreSQL/PostGIS. El indicador relativo de Huánuco 2016–2026 es experimental y no está validado.
+> Una detección de anomalía térmica no confirma por sí sola un incendio ni su causa. El proyecto consulta datos MODIS y VIIRS Suomi cargados en PostgreSQL/PostGIS. El indicador relativo de los departamentos del Perú entre 2016 y 2026 es experimental y no está validado.
 
 Consulte [instalación y carga de datos](docs/instalacion.md), [arquitectura](docs/arquitectura.md) y [metodología propuesta](docs/armonizacion.md) y [uso de datos por departamento](docs/datos-departamentos-peru.md).
 
