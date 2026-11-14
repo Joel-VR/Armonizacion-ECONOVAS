@@ -84,3 +84,70 @@ def points(conn, start, end, confidence, fire_type):
      FROM fire_detections, area WHERE acquired_at >= %(start)s AND acquired_at < %(end)s
      AND geom && area.g AND ST_Covers(area.g,geom) """ + FILTER + " ORDER BY acquired_at DESC, id DESC LIMIT 20001",
      {'shape': geometry(), 'start': start, 'end': end + timedelta(days=1), 'confidence': confidence, 'fire_type': fire_type}).fetchall()
+
+
+def cell_comparison(counts, start, starts, ends):
+    """Compara días con detecciones de una celda contra su línea estacional."""
+    end = start + timedelta(days=6)
+    year = start.year
+    if start.weekday() != 0 or end.year != year:
+        return None
+    season = min(start.isocalendar().week, 52)
+    baseline = []
+    cursor = date(2016, 1, 4)
+    while cursor + timedelta(days=6) <= date(2024, 12, 31):
+        number = min(cursor.isocalendar().week, 52)
+        distance = min((number-season) % 52, (season-number) % 52)
+        if distance <= 2 and cursor.year != year and (cursor + timedelta(days=6)).year != year:
+            baseline.append(cursor)
+        cursor += timedelta(days=7)
+    result = {}
+    for sensor in ('MODIS', 'VIIRS'):
+        available = starts.get(sensor) is not None and ends.get(sensor) is not None and start >= starts[sensor] and end <= ends[sensor]
+        sample = [counts.get((sensor, day), 0) for day in baseline]
+        years = {day.year for day in baseline}
+        value = counts.get((sensor, start), 0) if available else None
+        score = percentile(value, sample) if available and len(sample) >= 20 and len(years) >= 5 else None
+        ties = sum(v == value for v in sample) / len(sample) if score is not None else None
+        result[sensor] = {'days': value, 'percentile': score, 'sample': len(sample), 'ties': ties}
+    m, v = result['MODIS'], result['VIIRS']
+    comparable = m['percentile'] is not None and v['percentile'] is not None and m['ties'] < .5 and v['ties'] < .5
+    return {'sensors': result, 'combined': (m['percentile'] + v['percentile']) / 2 if comparable else None,
+            'disagreement': abs(m['percentile'] - v['percentile']) if comparable else None}
+
+
+def spatial_analysis(conn, start, grid, confidence, fire_type):
+    """Devuelve celdas con detecciones en la semana; áreas vacías no implican cero."""
+    end = start + timedelta(days=6)
+    params = {'shape': geometry(), 'grid': grid * 1000, 'confidence': confidence, 'fire_type': fire_type,
+              'start': start, 'end': end + timedelta(days=1)}
+    # Solo se calculan y dibujan celdas con alguna detección en la semana objetivo.
+    rows = conn.execute("""WITH area AS (SELECT ST_SetSRID(ST_GeomFromGeoJSON(%(shape)s),4326) AS g),
+      observations AS (SELECT sensor, acquired_at::date AS day, ST_Transform(geom,32718) AS p
+        FROM fire_detections, area WHERE acquired_at >= '2016-01-01' AND acquired_at < '2027-01-01'
+        AND geom && area.g AND ST_Covers(area.g,geom) """ + FILTER + """), cell_days AS (
+        SELECT DISTINCT sensor, day, floor(ST_X(p)/%(grid)s)::int AS x, floor(ST_Y(p)/%(grid)s)::int AS y FROM observations),
+      target AS (SELECT DISTINCT x,y FROM cell_days WHERE day >= %(start)s AND day < %(end)s)
+      SELECT c.sensor, date_trunc('week', c.day::timestamp)::date AS week, c.x, c.y, count(*) AS days
+      FROM cell_days c JOIN target t USING(x,y) GROUP BY c.sensor, week, c.x, c.y""", params).fetchall()
+    end_query = "SELECT sensor, min(acquired_at) AS first, max(acquired_at) AS last FROM fire_detections" + (" WHERE source_kind = 'archive'" if fire_type == 'vegetation' else "") + " GROUP BY sensor"
+    available = conn.execute(end_query).fetchall()
+    starts = {r['sensor']: r['first'].date() for r in available}
+    ends = {r['sensor']: r['last'].date() for r in available}
+    by_cell = {}
+    for row in rows:
+        by_cell.setdefault((row['x'],row['y']), {})[(row['sensor'],row['week'])] = row['days']
+    cells = [(x,y) for (x,y), counts in by_cell.items() if any((s,start) in counts for s in ('MODIS','VIIRS'))]
+    if not cells:
+        return {'type':'FeatureCollection','features':[], 'start':start, 'end':end}
+    shapes = conn.execute("""WITH area AS (SELECT ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON(%(shape)s),4326),32718) AS g),
+        cells AS (SELECT * FROM unnest(%(xs)s::int[],%(ys)s::int[]) AS c(x,y))
+        SELECT x,y, ST_AsGeoJSON(ST_Transform(ST_Intersection(area.g,ST_MakeEnvelope(x*%(grid)s,y*%(grid)s,(x+1)*%(grid)s,(y+1)*%(grid)s,32718)),4326)) AS geo
+        FROM cells,area""", {**params, 'xs':[c[0] for c in cells], 'ys':[c[1] for c in cells]}).fetchall()
+    features = []
+    for row in shapes:
+        comparison = cell_comparison(by_cell[(row['x'],row['y'])], start, starts, ends)
+        features.append({'type':'Feature','geometry':json.loads(row['geo']),
+                         'properties':{'x':row['x'], 'y':row['y'], **comparison}})
+    return {'type':'FeatureCollection','features':features, 'start':start, 'end':end,
+            'starts':starts, 'ends':ends, 'grid_km':grid}

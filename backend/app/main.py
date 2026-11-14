@@ -85,3 +85,16 @@ def huanuco_points(start: date, end: date, confidence: str = 'all', fire_type: s
             return {'data': rows[:20000], 'truncated': len(rows) > 20000}
     except psycopg.Error as exc:
         raise HTTPException(503, 'No se pudieron consultar las observaciones') from exc
+
+
+@app.get('/api/huanuco/cells')
+def huanuco_cells(start: date, grid: int = 5, confidence: str = 'all', fire_type: str = 'all'):
+    from .services.huanuco import spatial_analysis
+    end = start + timedelta(days=6)
+    if not 2016 <= start.year <= 2026 or start.weekday() != 0 or end.year != start.year or grid not in (2, 5, 10) or confidence not in ('all', 'high') or fire_type not in ('all', 'vegetation'):
+        raise HTTPException(422, 'Se requiere una semana ISO completa dentro de un año y filtros válidos')
+    try:
+        with connection() as conn:
+            return spatial_analysis(conn, start, grid, confidence, fire_type)
+    except psycopg.Error as exc:
+        raise HTTPException(503, 'No se pudo calcular la comparación por celda') from exc
