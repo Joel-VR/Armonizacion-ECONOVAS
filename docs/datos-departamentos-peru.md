@@ -2,7 +2,7 @@
 
 ## Estado actual
 
-El repositorio contiene descargas de NASA FIRMS de MODIS y de VIIRS a bordo de Suomi NPP, NOAA-20 y NOAA-21. **Actualmente la aplicación solo procesa y muestra Huánuco**, con datos de MODIS y Suomi entre 2016 y 2026. Los demás departamentos aún no están conectados. Los archivos de NOAA-20 y NOAA-21 están incluidos como fuentes disponibles, pero no se han importado ni integrado en el análisis actual.
+La carpeta local `data/modisViirs/` puede contener descargas de NASA FIRMS de MODIS y de VIIRS a bordo de Suomi NPP, NOAA-20 y NOAA-21. Estos archivos se excluyen de Git por su tamaño y deben descargarse por separado. **Actualmente la aplicación solo procesa y muestra Huánuco**, con datos de MODIS y Suomi entre 2016 y 2026. Los demás departamentos aún no están conectados. Los archivos de NOAA-20 y NOAA-21 están disponibles localmente como fuentes, pero no se han importado ni integrado en el análisis actual.
 
 ## Archivos de origen
 
