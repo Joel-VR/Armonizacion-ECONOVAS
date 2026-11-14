@@ -98,3 +98,58 @@ def huanuco_cells(start: date, grid: int = 5, confidence: str = 'all', fire_type
             return spatial_analysis(conn, start, grid, confidence, fire_type)
     except psycopg.Error as exc:
         raise HTTPException(503, 'No se pudo calcular la comparación por celda') from exc
+
+
+@app.get('/api/departments')
+def list_departments():
+    from .services.huanuco import departments
+    return {'data': sorted(({'code': d['code'], 'name': d['name'], 'srid': d['srid']} for d in departments().values()), key=lambda d: d['name'])}
+
+
+def valid_department(code):
+    from .services.huanuco import department
+    try:
+        return department(code)
+    except ValueError as exc:
+        raise HTTPException(404, 'Departamento no válido') from exc
+
+
+@app.get('/api/departments/{code}/analysis')
+def department_analysis(code: str, grid: int = 5, confidence: str = 'all', fire_type: str = 'all', year: int = 2026):
+    from .services.huanuco import analysis
+    valid_department(code)
+    if year < 2016 or year > 2026 or grid not in (2, 5, 10) or confidence not in ('all', 'high') or fire_type not in ('all', 'vegetation'):
+        raise HTTPException(422, 'Filtros no válidos')
+    try:
+        with connection() as conn:
+            return analysis(conn, grid, confidence, fire_type, year, code)
+    except psycopg.Error as exc:
+        raise HTTPException(503, 'No se pudo calcular el análisis') from exc
+
+
+@app.get('/api/departments/{code}/points')
+def department_points(code: str, start: date, end: date, confidence: str = 'all', fire_type: str = 'all'):
+    from .services.huanuco import points
+    valid_department(code)
+    if start.year < 2016 or end.year > 2026 or start.year != end.year or end < start or (end-start).days > 366 or confidence not in ('all', 'high') or fire_type not in ('all', 'vegetation'):
+        raise HTTPException(422, 'Intervalo o filtros no válidos')
+    try:
+        with connection() as conn:
+            rows = points(conn, start, end, confidence, fire_type, code)
+            return {'data': rows[:20000], 'truncated': len(rows) > 20000}
+    except psycopg.Error as exc:
+        raise HTTPException(503, 'No se pudieron consultar las observaciones') from exc
+
+
+@app.get('/api/departments/{code}/cells')
+def department_cells(code: str, start: date, grid: int = 5, confidence: str = 'all', fire_type: str = 'all'):
+    from .services.huanuco import spatial_analysis
+    valid_department(code)
+    end = start + timedelta(days=6)
+    if not 2016 <= start.year <= 2026 or start.weekday() != 0 or end.year != start.year or grid not in (2, 5, 10) or confidence not in ('all', 'high') or fire_type not in ('all', 'vegetation'):
+        raise HTTPException(422, 'Se requiere una semana ISO completa dentro de un año y filtros válidos')
+    try:
+        with connection() as conn:
+            return spatial_analysis(conn, start, grid, confidence, fire_type, code)
+    except psycopg.Error as exc:
+        raise HTTPException(503, 'No se pudo calcular la comparación por celda') from exc

@@ -1,4 +1,4 @@
-"""Indicadores exploratorios de Huánuco, con datos FIRMS en UTC."""
+"""Indicadores exploratorios departamentales, con datos FIRMS en UTC."""
 import json
 from datetime import date, timedelta
 from functools import lru_cache
@@ -7,9 +7,40 @@ from pathlib import Path
 GEO = Path(__file__).resolve().parents[3] / 'frontend' / 'public' / 'geo' / 'peru-departments.geojson'
 
 @lru_cache(maxsize=1)
-def geometry():
+def departments():
     data = json.loads(GEO.read_text(encoding='utf-8'))
-    return json.dumps(next(f['geometry'] for f in data['features'] if f['properties']['shapeISO'] == 'PE-HUC'))
+    grouped = {}
+    for feature in data['features']:
+        props = feature['properties']
+        code = 'PE-LIM' if props['shapeISO'] == 'PE-LMA*' else props['shapeISO']
+        name = 'Lima' if code == 'PE-LIM' else props['shapeName']
+        item = grouped.setdefault(code, {'code': code, 'name': name, 'geometries': []})
+        item['geometries'].append(feature['geometry'])
+    for item in grouped.values():
+        positions = []
+        def collect(value):
+            if isinstance(value, list) and value and isinstance(value[0], (int, float)):
+                positions.append(value[0])
+            elif isinstance(value, list):
+                for part in value:
+                    collect(part)
+        for geom in item['geometries']:
+            collect(geom['coordinates'])
+        longitude = (min(positions) + max(positions)) / 2
+        item['srid'] = 32700 + int((longitude + 180) // 6) + 1
+        item['geometry'] = json.dumps({'type': 'GeometryCollection', 'geometries': item.pop('geometries')})
+    return grouped
+
+
+def department(code):
+    try:
+        return departments()[code]
+    except KeyError as exc:
+        raise ValueError('Departamento no válido') from exc
+
+
+def geometry(code='PE-HUC'):
+    return department(code)['geometry']
 
 
 def percentile(value, sample):
@@ -59,10 +90,10 @@ def weekly_analysis(rows, ends, year=2026, starts=None):
 
 FILTER = """ AND (%(confidence)s = 'all' OR (sensor = 'MODIS' AND CASE WHEN confidence SIMILAR TO '[0-9]+' THEN confidence::integer >= 80 ELSE false END) OR (sensor = 'VIIRS' AND confidence = 'h')) AND (%(fire_type)s = 'all' OR fire_type = '0') """
 
-def analysis(conn, grid, confidence, fire_type, year=2026):
-    params = {'shape': geometry(), 'grid': grid * 1000, 'confidence': confidence, 'fire_type': fire_type, 'start': date(year, 1, 1), 'end': date(year+1, 1, 1)}
-    query = """WITH area AS (SELECT ST_SetSRID(ST_GeomFromGeoJSON(%(shape)s),4326) AS g), selected AS (
-       SELECT sensor, acquired_at::date AS day, ST_Transform(geom,32718) AS point
+def analysis(conn, grid, confidence, fire_type, year=2026, code='PE-HUC'):
+    params = {'shape': geometry(code), 'srid': department(code)['srid'], 'grid': grid * 1000, 'confidence': confidence, 'fire_type': fire_type, 'start': date(year, 1, 1), 'end': date(year+1, 1, 1)}
+    query = """WITH area AS MATERIALIZED (SELECT ST_UnaryUnion(ST_SetSRID(ST_GeomFromGeoJSON(%(shape)s),4326)) AS g), selected AS (
+       SELECT sensor, acquired_at::date AS day, ST_Transform(geom,%(srid)s) AS point
        FROM fire_detections, area WHERE acquired_at >= '2016-01-01' AND acquired_at < '2027-01-01'
        AND geom && area.g AND ST_Covers(area.g,geom) """ + FILTER + """), cells AS (
        SELECT DISTINCT sensor, day, floor(ST_X(point)/%(grid)s) AS x, floor(ST_Y(point)/%(grid)s) AS y FROM selected)
@@ -72,18 +103,18 @@ def analysis(conn, grid, confidence, fire_type, year=2026):
     available = conn.execute(end_query).fetchall()
     starts = {r['sensor']: r['first'].date() for r in available}
     ends = {r['sensor']: r['last'].date() for r in available}
-    daily = conn.execute("""WITH area AS (SELECT ST_SetSRID(ST_GeomFromGeoJSON(%(shape)s),4326) AS g)
+    daily = conn.execute("""WITH area AS MATERIALIZED (SELECT ST_UnaryUnion(ST_SetSRID(ST_GeomFromGeoJSON(%(shape)s),4326)) AS g)
       SELECT sensor, acquired_at::date AS day, count(*) AS detections FROM fire_detections, area
       WHERE acquired_at >= %(start)s AND acquired_at < %(end)s AND geom && area.g AND ST_Covers(area.g,geom) """ + FILTER + " GROUP BY sensor, day ORDER BY day",params).fetchall()
-    return {'weekly': weekly_analysis(rows, ends, year, starts), 'daily': daily, 'starts': starts, 'ends': ends, 'year': year, 'grid_km': grid, 'confidence': confidence, 'fire_type': fire_type}
+    return {'weekly': weekly_analysis(rows, ends, year, starts), 'daily': daily, 'starts': starts, 'ends': ends, 'year': year, 'grid_km': grid, 'confidence': confidence, 'fire_type': fire_type, 'department': {'code': code, 'name': department(code)['name'], 'srid': department(code)['srid']}}
 
 
-def points(conn, start, end, confidence, fire_type):
-    return conn.execute("""WITH area AS (SELECT ST_SetSRID(ST_GeomFromGeoJSON(%(shape)s),4326) AS g)
+def points(conn, start, end, confidence, fire_type, code='PE-HUC'):
+    return conn.execute("""WITH area AS MATERIALIZED (SELECT ST_UnaryUnion(ST_SetSRID(ST_GeomFromGeoJSON(%(shape)s),4326)) AS g)
      SELECT id, latitude, longitude, acquired_at, sensor, satellite, confidence, frp, brightness, scan, track, daynight, version, source_kind
      FROM fire_detections, area WHERE acquired_at >= %(start)s AND acquired_at < %(end)s
      AND geom && area.g AND ST_Covers(area.g,geom) """ + FILTER + " ORDER BY acquired_at DESC, id DESC LIMIT 20001",
-     {'shape': geometry(), 'start': start, 'end': end + timedelta(days=1), 'confidence': confidence, 'fire_type': fire_type}).fetchall()
+     {'shape': geometry(code), 'start': start, 'end': end + timedelta(days=1), 'confidence': confidence, 'fire_type': fire_type}).fetchall()
 
 
 def cell_comparison(counts, start, starts, ends):
@@ -116,14 +147,14 @@ def cell_comparison(counts, start, starts, ends):
             'disagreement': abs(m['percentile'] - v['percentile']) if comparable else None}
 
 
-def spatial_analysis(conn, start, grid, confidence, fire_type):
+def spatial_analysis(conn, start, grid, confidence, fire_type, code='PE-HUC'):
     """Devuelve celdas con detecciones en la semana; áreas vacías no implican cero."""
     end = start + timedelta(days=6)
-    params = {'shape': geometry(), 'grid': grid * 1000, 'confidence': confidence, 'fire_type': fire_type,
+    params = {'shape': geometry(code), 'srid': department(code)['srid'], 'grid': grid * 1000, 'confidence': confidence, 'fire_type': fire_type,
               'start': start, 'end': end + timedelta(days=1)}
     # Solo se calculan y dibujan celdas con alguna detección en la semana objetivo.
-    rows = conn.execute("""WITH area AS (SELECT ST_SetSRID(ST_GeomFromGeoJSON(%(shape)s),4326) AS g),
-      observations AS (SELECT sensor, acquired_at::date AS day, ST_Transform(geom,32718) AS p
+    rows = conn.execute("""WITH area AS MATERIALIZED (SELECT ST_UnaryUnion(ST_SetSRID(ST_GeomFromGeoJSON(%(shape)s),4326)) AS g),
+      observations AS (SELECT sensor, acquired_at::date AS day, ST_Transform(geom,%(srid)s) AS p
         FROM fire_detections, area WHERE acquired_at >= '2016-01-01' AND acquired_at < '2027-01-01'
         AND geom && area.g AND ST_Covers(area.g,geom) """ + FILTER + """), cell_days AS (
         SELECT DISTINCT sensor, day, floor(ST_X(p)/%(grid)s)::int AS x, floor(ST_Y(p)/%(grid)s)::int AS y FROM observations),
@@ -140,9 +171,9 @@ def spatial_analysis(conn, start, grid, confidence, fire_type):
     cells = [(x,y) for (x,y), counts in by_cell.items() if any((s,start) in counts for s in ('MODIS','VIIRS'))]
     if not cells:
         return {'type':'FeatureCollection','features':[], 'start':start, 'end':end}
-    shapes = conn.execute("""WITH area AS (SELECT ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON(%(shape)s),4326),32718) AS g),
+    shapes = conn.execute("""WITH area AS MATERIALIZED (SELECT ST_Transform(ST_UnaryUnion(ST_SetSRID(ST_GeomFromGeoJSON(%(shape)s),4326)),%(srid)s) AS g),
         cells AS (SELECT * FROM unnest(%(xs)s::int[],%(ys)s::int[]) AS c(x,y))
-        SELECT x,y, ST_AsGeoJSON(ST_Transform(ST_Intersection(area.g,ST_MakeEnvelope(x*%(grid)s,y*%(grid)s,(x+1)*%(grid)s,(y+1)*%(grid)s,32718)),4326)) AS geo
+        SELECT x,y, ST_AsGeoJSON(ST_Transform(ST_Intersection(area.g,ST_MakeEnvelope(x*%(grid)s,y*%(grid)s,(x+1)*%(grid)s,(y+1)*%(grid)s,%(srid)s)),4326)) AS geo
         FROM cells,area""", {**params, 'xs':[c[0] for c in cells], 'ys':[c[1] for c in cells]}).fetchall()
     features = []
     for row in shapes:

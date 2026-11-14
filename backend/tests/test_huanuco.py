@@ -3,9 +3,20 @@ import unittest
 from pathlib import Path
 from datetime import date
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from app.services.huanuco import percentile, weekly_analysis, cell_comparison
+from app.services.huanuco import percentile, weekly_analysis, cell_comparison, departments, geometry
 
 class HuanucoTest(unittest.TestCase):
+    def test_departments_and_lima_components(self):
+        import json
+        regions = departments()
+        self.assertEqual(len(regions), 25)
+        self.assertEqual(len(json.loads(geometry('PE-LIM'))['geometries']), 2)
+        self.assertEqual(regions['PE-HUC']['srid'], 32718)
+        self.assertIn(regions['PE-TUM']['srid'], (32717, 32718))
+        self.assertIn('PE-CAL', regions)
+        with self.assertRaises(ValueError):
+            geometry('PE-INVALID')
+
     def test_empirical_percentile_ties(self):
         self.assertEqual(percentile(2, [1, 2, 2, 4]), .5)
 
