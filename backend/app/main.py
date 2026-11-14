@@ -60,3 +60,28 @@ def daily(start: date, end: date):
             return {'data': rows}
         except psycopg.Error:
             raise HTTPException(503, 'No se pudieron consultar los agregados')
+
+
+@app.get('/api/huanuco/analysis')
+def huanuco_analysis(grid: int = 5, confidence: str = 'all', fire_type: str = 'all', year: int = 2026):
+    from .services.huanuco import analysis
+    if year < 2016 or year > 2026 or grid not in (2, 5, 10) or confidence not in ('all', 'high') or fire_type not in ('all', 'vegetation'):
+        raise HTTPException(422, 'Filtros no válidos')
+    try:
+        with connection() as conn:
+            return analysis(conn, grid, confidence, fire_type, year)
+    except psycopg.Error as exc:
+        raise HTTPException(503, 'No se pudo calcular el análisis') from exc
+
+
+@app.get('/api/huanuco/points')
+def huanuco_points(start: date, end: date, confidence: str = 'all', fire_type: str = 'all'):
+    from .services.huanuco import points
+    if start.year < 2016 or end.year > 2026 or start.year != end.year or end < start or (end-start).days > 366 or confidence not in ('all', 'high') or fire_type not in ('all', 'vegetation'):
+        raise HTTPException(422, 'Intervalo o filtros no válidos')
+    try:
+        with connection() as conn:
+            rows = points(conn, start, end, confidence, fire_type)
+            return {'data': rows[:20000], 'truncated': len(rows) > 20000}
+    except psycopg.Error as exc:
+        raise HTTPException(503, 'No se pudieron consultar las observaciones') from exc
