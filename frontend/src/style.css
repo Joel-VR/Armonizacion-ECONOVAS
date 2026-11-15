@@ -53,8 +53,8 @@ button:focus-visible,
 a:focus-visible,
 select:focus-visible,
 summary:focus-visible {
-  outline: 2px solid rgba(184, 29, 36, 0.4);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.12);
 }
 button {
   transition:
@@ -1838,7 +1838,7 @@ main {
 .huanuco-app button, .huanuco-app select, .huanuco-app input { min-height: 32px; }
 .huanuco-app button { transition: transform 140ms ease, background-color 140ms ease, box-shadow 140ms ease, color 140ms ease; }
 .huanuco-app button:active:not(:disabled) { transform: scale(.98); }
-.huanuco-app :focus-visible { outline: 3px solid #e73340; outline-offset: 3px; }
+.huanuco-app :focus-visible { outline: none; }
 .filter-panel { display:flex; flex-wrap:wrap; gap:16px 22px; align-items:end; background:#fff; border:1px solid #e9ebed; border-radius:16px; padding:20px 24px; box-shadow:0 5px 20px #17291a0a; }
 .filter-heading { display:flex; align-items:center; gap:10px; font-weight:750; color:#263d2e; margin-right:auto; flex-wrap:wrap; }
 .filter-heading small { flex-basis:100%; font-size:.77rem; color:#7a8580; font-weight:500; padding-left:29px; }

@@ -373,8 +373,8 @@ function onNavigateToMap({ year: yr, month: m }: { year: number; month: number }
 }
 
 .dept-trigger:focus-visible {
-  outline: 2px solid rgba(184, 29, 36, 0.35);
-  outline-offset: 2px;
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.08) !important;
 }
 
 .aoi-label {
@@ -438,6 +438,12 @@ function onNavigateToMap({ year: yr, month: m }: { year: number; month: number }
   padding: 0.5rem 0.65rem;
   border-bottom: 1px solid #f1f5f9;
   background: #f8fafc;
+  transition: all 0.15s ease;
+}
+
+.dept-search-header:focus-within {
+  background: #ffffff;
+  border-bottom-color: #cbd5e1;
 }
 
 .search-icon {
@@ -445,14 +451,17 @@ function onNavigateToMap({ year: yr, month: m }: { year: number; month: number }
   flex-shrink: 0;
 }
 
-.dept-search-input {
+.dept-search-input,
+.dept-search-input:focus,
+.dept-search-input:focus-visible {
   width: 100%;
-  border: none;
-  background: transparent;
+  border: none !important;
+  background: transparent !important;
   font-size: 0.82rem;
   font-weight: 600;
   color: #0f172a;
-  outline: none;
+  outline: none !important;
+  box-shadow: none !important;
   font-family: inherit;
 }
 
