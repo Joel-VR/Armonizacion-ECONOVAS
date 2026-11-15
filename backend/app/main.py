@@ -7,7 +7,7 @@ from psycopg.rows import dict_row
 
 from .database import database_config
 
-app = FastAPI(title='Brinco Alerta API', version='0.2.0')
+app = FastAPI(title="T'UKRI API", version='0.2.0')
 
 
 @app.get('/api/huanuco/events/analysis')

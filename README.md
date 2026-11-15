@@ -1,8 +1,8 @@
 > **Actualización: backend de eventos.** El mapa ya usa agrupaciones probables con filtro estricto y separa agrícola de mosaico mixto/pasto. El modelo agrega ubicaciones, fuentes, reglas, ejecuciones, evaluaciones y eventos con sus detecciones. Consulte [modelo, reproducción y límites](docs/backend-eventos.md). La sección de evaluación rápida de abajo describe la fase anterior; sus 414 candidatos ya no son los puntos publicados por el mapa.
 
-# Brinco Alerta
+# T'UKRI · Monitoreo y Armonización Satelital del Territorio
 
-Brinco Alerta es un proyecto para explorar observaciones satelitales relacionadas con el estudio de incendios forestales y quemas agrícolas, con un enfoque inicial en Huánuco y Perú. Reúne una interfaz web, una API y un pipeline para importar observaciones JSON de NASA FIRMS. Su identidad visual utiliza un conejo bombero como símbolo de protección de la vida silvestre.
+**T'UKRI** es una plataforma para el monitoreo, armonización y contextualización territorial de anomalías térmicas satelitales (NASA FIRMS MODIS y VIIRS) en los **25 departamentos del Perú**, con diferenciación espacial de quemas agrícolas e incendios forestales mediante **MapBiomas Perú (Colección 4, 2025)**. Su identidad visual presenta a T'UKRI, el guardián andino-amazónico protector de los ecosistemas.
 
 > Una detección de anomalía térmica no confirma por sí sola un incendio ni su causa. La interfaz rápida trabaja exclusivamente con Huánuco en 2026 y utiliza cobertura MapBiomas 2025 como referencia anterior. Separa posibles fuegos, casos por revisar y exclusiones por tipo original NASA, sin borrar observaciones.
 
