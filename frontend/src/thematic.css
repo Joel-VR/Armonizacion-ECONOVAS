@@ -609,4 +609,15 @@
 
 /* Keep the current navigation readable after integrating the compact legacy layout. */
 .thematic-app .topbar nav button{font-size:13px;min-height:38px}
+
+/* Dejar que el documento crezca cuando el mapa y el análisis comparten la vista. */
+@media (min-width: 769px) {
+  .thematic-app.map-page { height: auto; min-height: 100dvh; }
+  .thematic-app.map-page main { flex: none; min-height: 0; width: 100%; max-width: none; }
+  .thematic-app.map-page .map-panel { flex: none; min-width: 0; }
+  .thematic-app.map-page .map-workspace { flex: none; min-width: 0; align-items: stretch; }
+  .thematic-app.map-page .thematic-stage { height: clamp(560px, 72dvh, 1000px); min-height: 560px; }
+  .thematic-app.map-page .map-side-panel { height: clamp(560px, 72dvh, 1000px); min-width: 0; }
+  .thematic-app.map-page .map-source-note { flex: none; }
+}
 @media(max-width:768px){.thematic-app .topbar nav button{font-size:11px}}

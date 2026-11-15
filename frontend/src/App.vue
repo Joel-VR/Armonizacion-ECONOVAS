@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent, ref, watch } from 'vue'
+import { defineAsyncComponent, ref, watch } from 'vue'
 import {
   Map,
   CalendarDays,
@@ -8,61 +8,29 @@ import {
   RefreshCw,
 } from '@lucide/vue'
 import MapView from './components/MapView.vue'
-import { type ScreenedAnalysis, type Decision } from './huanuco'
-const CalendarView = defineAsyncComponent(() => import('./components/CalendarView.vue'))
-const HistoryView = defineAsyncComponent(() => import('./components/HistoryView.vue'))
+import { type Analysis } from './huanuco'
+const WeeklyView = defineAsyncComponent(() => import('./components/WeeklyView.vue'))
 const view = ref('map')
-const decision = ref<Decision>('candidate')
-const cover = ref('all'),
-  confidence = ref('all')
-const analysis = ref<ScreenedAnalysis | null>(null),
-  loading = ref(false),
-  error = ref('')
 const refresh = ref(0)
+const year = ref(2026)
+const weekly = ref<Analysis | null>(null)
+const weeklyError = ref('')
+watch([refresh, year], async (_, __, onCleanup) => {
+  const controller = new AbortController()
+  onCleanup(() => controller.abort())
+  weeklyError.value = ''
+  try {
+    const response = await fetch(`/api/departments/PE-HUC/analysis?year=${year.value}&grid=5&confidence=all&fire_type=all`, { signal: controller.signal })
+    if (!response.ok) { const body = await response.json().catch(() => ({})); throw new Error(body.detail || 'No se pudieron consultar los indicadores semanales.') }
+    const result = await response.json()
+    if (!controller.signal.aborted) weekly.value = result
+  } catch (e) { if (!controller.signal.aborted) { weekly.value = null; weeklyError.value = e instanceof Error ? e.message : 'Error de conexión.' } }
+}, { immediate: true })
 const nav = [
   { id: 'map', title: 'Mapa principal', icon: Map },
   { id: 'calendar', title: 'Calendario', icon: CalendarDays },
   { id: 'history', title: 'Análisis histórico', icon: ChartNoAxesCombined },
 ]
-const query = computed(
-  () =>
-    '/api/huanuco/events/analysis?' +
-    new URLSearchParams({
-      decision: decision.value,
-      cover: cover.value,
-      confidence: confidence.value,
-      refresh: String(refresh.value),
-    }),
-)
-let controller: AbortController | undefined
-watch(
-  query,
-  async (q) => {
-    controller?.abort()
-    const active = new AbortController()
-    controller = active
-    loading.value = true
-    error.value = ''
-    analysis.value = null
-    try {
-      const response = await fetch(q, { signal: active.signal })
-      if (!response.ok) {
-        const body = await response.json().catch(() => ({}))
-        throw new Error(
-          body.detail || 'No se pudo consultar la base local. Comprueba que la API esté activa.',
-        )
-      }
-      const body = await response.json()
-      if (!active.signal.aborted) analysis.value = body
-    } catch (e) {
-      if (!active.signal.aborted)
-        error.value = e instanceof Error ? e.message : 'No se pudo conectar.'
-    } finally {
-      if (!active.signal.aborted) loading.value = false
-    }
-  },
-  { immediate: true },
-)
 </script>
 <template>
   <a href="#main" class="skip-link">Saltar al contenido</a>
@@ -71,7 +39,7 @@ watch(
       <a class="brand turki-brand" href="#" @click.prevent="view = 'map'" aria-label="T'UKRI · Inicio">
         <span class="brand-logo"><img src="/brand/turki.png" alt="Mascota de T'UKRI" /></span>
         <span class="brand-name">T'UKRI</span>
-        <span class="brand-location">Huánuco<small>Perú · 2026</small></span>
+        <span class="brand-location">Huánuco<small>Perú · {{ year }}</small></span>
       </a>
       <nav aria-label="Navegación principal">
         <button
@@ -85,7 +53,7 @@ watch(
         </button>
       </nav>
       <button class="icon-button header-refresh" aria-label="Actualizar datos" title="Actualizar datos" @click="refresh++">
-        <RefreshCw :size="18" :class="{ spin: loading }" />
+        <RefreshCw :size="18"  />
       </button>
     </header>
     <main id="main">
@@ -102,20 +70,15 @@ watch(
           </h1>
         </div>
       </div>
-      <div v-if="error" class="context-banner" role="alert"><Info :size="16" />{{ error }}</div>
-      <p v-else-if="loading" class="loading-inline" role="status">
-        Consultando las observaciones evaluadas…
-      </p>
+      <div v-if="weeklyError" class="context-banner" role="alert"><Info :size="16" />{{ weeklyError }}</div>
       <MapView
         v-if="view === 'map'"
-        :decision="decision"
-        :cover="cover"
-        :confidence="confidence"
         :refresh="refresh"
-        :analysis="analysis"
+        :analysis="weekly"
+        v-model:year="year"
       />
-      <CalendarView v-else-if="view === 'calendar'" :analysis="analysis" :decision="decision" />
-      <HistoryView v-else :analysis="analysis" :decision="decision" />
+      <WeeklyView v-if="view === 'calendar' || view === 'history'" :analysis="weekly" :calendar="view === 'calendar'" v-model:year="year" />
+      <WeeklyView v-if="view === 'map'" :analysis="weekly" :calendar="false" :year="year" compact />
     </main>
     <footer class="app-footer">
       <p>
