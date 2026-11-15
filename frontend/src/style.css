@@ -124,6 +124,8 @@ p {
   flex-direction: column;
 }
 .topbar {
+  position: sticky;
+  top: 0;
   min-height: 86px;
   padding: 12px 30px;
   display: flex;
@@ -133,6 +135,8 @@ p {
   color: #fff;
   box-shadow: 0 2px 12px #bd263522;
   z-index: 10;
+  flex-shrink: 0;
+  isolation: isolate;
 }
 .brand {
   display: flex;
@@ -1818,11 +1822,11 @@ main {
 }
 
 /* Huánuco: jerarquía legible y movimiento ligero */
-.huanuco-app { font-size: 16px; }
+.huanuco-app { font-size: 9px; }
 .huanuco-app main { max-width: 1680px; }
-.huanuco-app .page-heading h1 { font-size: clamp(2rem, 3vw, 3.35rem); letter-spacing: -.035em; text-wrap: balance; }
-.huanuco-app .page-heading p, .huanuco-app .context-banner, .huanuco-app .filter-explanation { font-size: 1rem; }
-.huanuco-app button, .huanuco-app select, .huanuco-app input { min-height: 44px; }
+.huanuco-app .page-heading h1 { font-size: clamp(1.7rem, 2.5vw, 2.8rem); letter-spacing: -.035em; text-wrap: balance; }
+.huanuco-app .page-heading p, .huanuco-app .context-banner, .huanuco-app .filter-explanation { font-size: .9rem; }
+.huanuco-app button, .huanuco-app select, .huanuco-app input { min-height: 32px; }
 .huanuco-app button { transition: transform 140ms ease, background-color 140ms ease, box-shadow 140ms ease, color 140ms ease; }
 .huanuco-app button:active:not(:disabled) { transform: scale(.98); }
 .huanuco-app :focus-visible { outline: 3px solid #e73340; outline-offset: 3px; }
@@ -1837,6 +1841,25 @@ main {
 .huanuco-app .scope-summary { min-width:240px; }
 .huanuco-app .calendar-grid.dates button { min-height:85px; }
 .huanuco-app .calendar-detail { min-height:500px; }
+.huanuco-app .topbar { min-height:56px; padding:6px 18px; gap:14px; }
+.huanuco-app .brand { gap:7px; font-size:16px; }
+.huanuco-app .brand-logo { width:34px; height:40px; border-radius:7px; }
+.huanuco-app .brand-logo img { height:38px; }
+.huanuco-app .brand small { font-size:6px; margin-top:3px; }
+.huanuco-app .topbar nav { gap:5px; }
+.huanuco-app .topbar nav button { gap:5px; padding:6px 9px; font-size:9px; }
+.huanuco-app .demo-indicator { padding:5px 8px; font-size:7px; }
+.huanuco-app .demo-indicator small { font-size:8px; }
+.huanuco-app .page-heading { padding:11px 18px 13px; }
+.huanuco-app .page-heading h1 { font-size:clamp(1.25rem, 1.8vw, 1.85rem); margin:3px 0; }
+.huanuco-app .page-heading p { font-size:10px; }
+.huanuco-app .map-toolbar { min-height:44px; padding:6px 18px; }
+.huanuco-app .filter-panel { gap:9px 12px; padding:10px 14px; border-radius:10px; }
+.huanuco-app .filter-heading { gap:7px; }
+.huanuco-app .filter-heading small { font-size:.68rem; padding-left:24px; }
+.huanuco-app .filter-panel label { gap:4px; font-size:.68rem; }
+.huanuco-app select, .huanuco-app input[type=date] { padding:6px 28px 6px 9px; font-size:.8rem; }
+.huanuco-app .filter-explanation { margin:5px 2px 10px; font-size:.78rem; }
 .sensor-mini, .week-comparison { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin:22px 0; }
 .sensor-mini > div, .week-comparison > div { background:#f5f8f4; padding:15px; border-radius:12px; display:flex; flex-direction:column; gap:5px; }
 .sensor-mini strong { font-size:1.9rem; color:#203d2a; font-variant-numeric:tabular-nums; }
@@ -1862,6 +1885,292 @@ main {
 .view-mode button { border:0; border-radius:8px; padding:8px 16px; color:#526558; background:transparent; font-weight:700; cursor:pointer; }
 .view-mode button.active { background:#fff; color:#b62532; box-shadow:0 2px 8px #1b382015; }
 .view-mode small { font-size:.72rem; font-weight:500; }
+.huanuco-app .filter-panel {
+  display: grid;
+  grid-template-columns: minmax(170px, .7fr) minmax(0, 3fr);
+  align-items: center;
+  gap: 12px 24px;
+  margin: 0;
+  padding: 12px 18px;
+  border-radius: 0;
+  box-shadow: none;
+}
+.huanuco-app .filter-heading {
+  margin: 0;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+}
+.huanuco-app .filter-heading > div {
+  display: grid;
+  gap: 3px;
+}
+.huanuco-app .filter-heading small {
+  padding: 0;
+  font-size: .64rem;
+  white-space: nowrap;
+}
+.huanuco-app .filter-fields {
+  display: grid;
+  grid-template-columns: 1.05fr .72fr .9fr 1.05fr 1.85fr;
+  gap: 9px;
+  min-width: 0;
+}
+.huanuco-app .filter-panel label {
+  min-width: 0;
+}
+.huanuco-app .filter-panel select {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.huanuco-app .filter-panel .view-mode {
+  grid-column: 2;
+  width: max-content;
+  margin: 0;
+  padding: 3px;
+  border-radius: 8px;
+}
+.huanuco-app .filter-panel .view-mode > span {
+  padding: 0 7px;
+  font-size: .68rem;
+}
+.huanuco-app .filter-panel .view-mode button {
+  min-height: 26px;
+  padding: 4px 9px;
+  font-size: .68rem;
+}
+@media (max-width: 900px) {
+  .huanuco-app .filter-panel {
+    grid-template-columns: 1fr;
+  }
+  .huanuco-app .filter-fields,
+  .huanuco-app .filter-panel .view-mode {
+    grid-column: 1;
+  }
+}
+@media (max-width: 700px) {
+  .huanuco-app .filter-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.huanuco-app {
+  font-size: 13px;
+  overflow-x: clip;
+}
+.huanuco-app .map-dashboard {
+  display: grid;
+  grid-template-columns: 248px minmax(0, 1fr);
+  min-height: calc(100dvh - 142px);
+  background: #f5f7f5;
+}
+.huanuco-app .filter-sidebar {
+  padding: 14px 12px 18px;
+  background: #f7f9f7;
+  border-right: 1px solid #e1e8e1;
+}
+.huanuco-app .filter-sidebar .filter-panel {
+  display: block;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.huanuco-app .filter-sidebar .filter-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 2px 3px 9px;
+  margin-bottom: 9px;
+  border-bottom: 1px solid #e2e9e2;
+  font-size: .82rem;
+  line-height: 1.15;
+}
+.huanuco-app .filter-sidebar .filter-heading > svg {
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+}
+.huanuco-app .filter-sidebar .filter-heading > div {
+  min-width: 0;
+}
+.huanuco-app .filter-sidebar .filter-heading small {
+  display: block;
+  margin-top: 4px;
+  font-size: .61rem;
+  white-space: normal;
+  line-height: 1.25;
+  color: #7a8580;
+}
+.huanuco-app .filter-sidebar .filter-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.huanuco-app .filter-sidebar .filter-panel label {
+  gap: 5px;
+  font-size: .73rem;
+  color: #536159;
+}
+.huanuco-app .filter-sidebar .filter-panel select {
+  min-height: 34px;
+  padding: 7px 28px 7px 10px;
+  font-size: .82rem;
+  background: #fff;
+}
+.huanuco-app .filter-sidebar .view-mode {
+  display: flex;
+  width: 100%;
+  margin: 18px 0 0;
+  padding: 4px;
+  gap: 3px;
+  border-radius: 8px;
+}
+.huanuco-app .filter-sidebar .view-mode > span {
+  display: none;
+}
+.huanuco-app .filter-sidebar .view-mode button {
+  flex: 1;
+  min-height: 30px;
+  padding: 5px 4px;
+  font-size: .68rem;
+  white-space: nowrap;
+}
+.huanuco-app .filter-sidebar .filter-explanation {
+  margin: 14px 4px 0;
+  font-size: .68rem;
+  line-height: 1.45;
+}
+.huanuco-app .filter-sidebar .context-banner {
+  display: block;
+  margin: 12px 0 0;
+  padding: 9px;
+  border-radius: 7px;
+  font-size: .7rem;
+  line-height: 1.35;
+}
+.huanuco-app .dashboard-content {
+  min-width: 0;
+  min-height: 0;
+}
+.huanuco-app .dashboard-content .map-panel {
+  height: 100%;
+}
+.huanuco-app .dashboard-content .map-stage {
+  height: calc(100dvh - 205px);
+  min-height: 500px;
+}
+.huanuco-app .dashboard-content .map-toolbar {
+  position: relative;
+  z-index: 3;
+  min-height: 42px;
+  padding: 4px 16px;
+  border-bottom: 1px solid #dfe6df;
+  box-shadow: 0 2px 6px #263c2d0b;
+  white-space: nowrap;
+}
+.huanuco-app .dashboard-content .map-toolbar input,
+.huanuco-app .dashboard-content .map-toolbar select {
+  min-height: 30px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+.huanuco-app .dashboard-content .map-toolbar .toolbar-source {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@media (max-width: 850px) {
+  .huanuco-app .map-dashboard {
+    grid-template-columns: 210px minmax(0, 1fr);
+  }
+  .huanuco-app .filter-sidebar {
+    padding-inline: 8px;
+  }
+}
+@media (max-width: 700px) {
+  .huanuco-app .map-dashboard {
+    display: block;
+  }
+  .huanuco-app .filter-sidebar {
+    border-right: 0;
+    border-bottom: 1px solid #e1e8e1;
+  }
+  .huanuco-app .filter-sidebar .filter-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .huanuco-app .dashboard-content .map-stage {
+    height: calc(100dvh - 375px);
+    min-height: 400px;
+  }
+}
+.huanuco-app .page-heading {
+  padding: 8px 18px 9px;
+}
+.huanuco-app .page-heading h1 {
+  font-size: clamp(1.15rem, 1.65vw, 1.65rem);
+  margin: 2px 0;
+}
+.huanuco-app .page-heading p {
+  font-size: 9px;
+}
+.huanuco-app .update-status {
+  gap: 7px;
+  padding-left: 14px;
+}
+.huanuco-app .filter-panel {
+  gap: 8px 18px;
+  padding: 8px 18px;
+}
+.huanuco-app .filter-fields {
+  gap: 7px;
+}
+.huanuco-app .filter-panel label {
+  gap: 3px;
+}
+.huanuco-app .filter-panel select {
+  min-height: 28px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+.huanuco-app .filter-panel .view-mode {
+  display: none;
+}
+.huanuco-app .filter-explanation {
+  margin: 3px 2px 6px;
+  font-size: .7rem;
+  line-height: 1.25;
+}
+.huanuco-app .context-banner {
+  min-height: 28px;
+  margin: 0;
+  padding: 6px 12px;
+  border-radius: 0;
+}
+.huanuco-app .map-toolbar {
+  min-height: 38px;
+  gap: 8px;
+  padding: 4px 18px;
+}
+.huanuco-app .map-toolbar > label {
+  gap: 5px;
+  font-size: 10px;
+}
+.huanuco-app .map-toolbar input,
+.huanuco-app .map-toolbar select {
+  min-height: 28px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+.huanuco-app .toolbar-source {
+  padding-left: 12px;
+  margin-left: 3px;
+  font-size: 9px;
+}
+.huanuco-app .map-stage {
+  height: calc(100dvh - 260px);
+  min-height: 420px;
+}
 .legend-swatch { display:inline-block; width:12px; height:12px; border-radius:3px; margin-right:5px; }
 .calendar-grid.dates button.h-low { background:#e7f4ea; }.calendar-grid.dates button.h-mid { background:#f9efc4; }.calendar-grid.dates button.h-high { background:#f9d9bf; }.calendar-grid.dates button.h-extreme { background:#f3c5c2; }.calendar-grid.dates button.h-missing { background:#eef0ee; }
 .bar.harmonized,.chart-legend i.harmonized { background:#5c8c68; }
