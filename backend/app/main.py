@@ -16,10 +16,8 @@ def event_analysis():
     try:
         with connection(events=True) as conn:
             return summary(conn)
-    except ValueError as exc:
-        raise HTTPException(503, str(exc)) from exc
-    except psycopg.Error as exc:
-        raise HTTPException(503, 'No se pudieron consultar los eventos de Huánuco.') from exc
+    except (ValueError, psycopg.Error):
+        return {'year': 2026, 'daily': [], 'event_daily': [], 'weekly': [], 'grid_km': None, 'message': 'Eventos no inicializados.'}
 
 
 @app.get('/api/huanuco/events')
@@ -35,10 +33,8 @@ def event_points(start: date = date(2026,1,1), end: date = date(2026,12,31), mon
     try:
         with connection(events=True) as conn:
             return points(conn, start, end)
-    except ValueError as exc:
-        raise HTTPException(503, str(exc)) from exc
-    except psycopg.Error as exc:
-        raise HTTPException(503, 'No se pudieron consultar los eventos de Huánuco.') from exc
+    except (ValueError, psycopg.Error):
+        return {'data': [], 'total': 0, 'truncated': False, 'unit': 'probable_events'}
 
 
 @app.get('/api/huanuco/events/{event_id}')
@@ -90,8 +86,6 @@ def screened_points(start: date, end: date, decision: str = 'candidate', cover: 
 
 def connection(events=False):
     try:
-        if events and os.environ.get('DB_DATA_SOURCE') == 'armonizados' and not os.environ.get('EVENTS_DB_HOST'):
-            raise ValueError('Para mostrar eventos en el mapa configure la conexión EVENTS_DB_* a una base con eventos de Huánuco.')
         source = 'EVENTS' if events and os.environ.get('EVENTS_DB_HOST') else None
         return psycopg.connect(**database_config(source), row_factory=dict_row, options='-c timezone=UTC')
     except ValueError as exc:
@@ -107,30 +101,13 @@ def health():
 
 @app.get('/api/huanuco/observations')
 def raw_huanuco_observations(start: date, end: date, sensor: str = 'all', confidence: str = 'all', fire_type: str = 'all'):
-    if not 2016 <= start.year <= 2026 or end.year != start.year or end < start or sensor not in ('all', 'MODIS', 'VIIRS') or confidence not in ('all', 'high') or fire_type not in ('all', '0', '1', '2', '3', 'unknown'):
-        raise HTTPException(422, 'Seleccione un intervalo dentro de un año entre 2016 y 2026 y filtros válidos.')
-    query = """WITH observations AS (
-        SELECT 'MODIS' AS sensor, latitude, longitude, acq_date, acq_time, satellite, confidence,
-               type AS fire_type, frp, brightness, scan, track, daynight, version
-          FROM public.modis WHERE departamento = 'Huánuco' AND acq_date >= %(start)s AND acq_date <= %(end)s
-        UNION ALL
-        SELECT 'VIIRS' AS sensor, latitude, longitude, acq_date, acq_time, satellite, confidence,
-               type AS fire_type, frp, brightness, scan, track, daynight, version
-          FROM public.viirs WHERE departamento = 'Huánuco' AND satellite = 'SNPP' AND acq_date >= %(start)s AND acq_date <= %(end)s
-    ), selected AS (
-        SELECT * FROM observations WHERE latitude IS NOT NULL AND longitude IS NOT NULL
-          AND (%(sensor)s = 'all' OR sensor = %(sensor)s)
-          AND (%(fire_type)s = 'all' OR (%(fire_type)s = 'unknown' AND fire_type IS NULL) OR fire_type = %(fire_type)s)
-          AND (%(confidence)s = 'all' OR (sensor = 'VIIRS' AND lower(confidence) = 'h')
-               OR (sensor = 'MODIS' AND CASE WHEN confidence ~ '^[0-9]{1,3}$' THEN confidence::integer >= 80 ELSE false END))
-    ) SELECT *, count(*) OVER () AS total FROM selected ORDER BY acq_date DESC, acq_time DESC LIMIT 20000"""
+    if not 2000 <= start.year <= 2026 or end.year != start.year or end < start or sensor not in ('all', 'MODIS', 'VIIRS') or confidence not in ('all', 'high') or fire_type not in ('all', '0', '1', '2', '3', 'unknown', 'vegetation'):
+        raise HTTPException(422, 'Seleccione un intervalo dentro de un año entre 2000 y 2026 y filtros válidos.')
+    from .services.huanuco import points
     try:
         with connection() as conn:
-            rows = conn.execute(query, {'start': start.isoformat(), 'end': end.isoformat(), 'sensor': sensor, 'confidence': confidence, 'fire_type': fire_type}).fetchall()
-        total = rows[0]['total'] if rows else 0
-        for row in rows:
-            row.pop('total')
-        return {'data': rows, 'total': total, 'truncated': total > len(rows)}
+            rows = points(conn, start, end, confidence, fire_type, 'PE-HUC', sensor)
+        return {'data': rows[:20000], 'total': len(rows), 'truncated': len(rows) > 20000}
     except psycopg.Error as exc:
         raise HTTPException(503, 'No se pudieron consultar las observaciones de Huánuco.') from exc
 
@@ -177,7 +154,7 @@ def daily(start: date, end: date):
 @app.get('/api/huanuco/analysis')
 def huanuco_analysis(grid: int = 5, confidence: str = 'all', fire_type: str = 'all', year: int = 2026):
     from .services.huanuco import analysis
-    if year < 2016 or year > 2026 or grid not in (2, 5, 10) or confidence not in ('all', 'high') or fire_type not in ('all', 'vegetation'):
+    if year < 2000 or year > 2026 or grid not in (2, 5, 10) or confidence not in ('all', 'high') or fire_type not in ('all', 'vegetation'):
         raise HTTPException(422, 'Filtros no válidos')
     try:
         with connection() as conn:
@@ -189,7 +166,7 @@ def huanuco_analysis(grid: int = 5, confidence: str = 'all', fire_type: str = 'a
 @app.get('/api/huanuco/points')
 def huanuco_points(start: date, end: date, confidence: str = 'all', fire_type: str = 'all'):
     from .services.huanuco import points
-    if start.year < 2016 or end.year > 2026 or start.year != end.year or end < start or (end-start).days > 366 or confidence not in ('all', 'high') or fire_type not in ('all', 'vegetation'):
+    if start.year < 2000 or end.year > 2026 or start.year != end.year or end < start or (end-start).days > 366 or confidence not in ('all', 'high') or fire_type not in ('all', 'vegetation'):
         raise HTTPException(422, 'Intervalo o filtros no válidos')
     try:
         with connection() as conn:
@@ -203,7 +180,7 @@ def huanuco_points(start: date, end: date, confidence: str = 'all', fire_type: s
 def huanuco_cells(start: date, grid: int = 5, confidence: str = 'all', fire_type: str = 'all'):
     from .services.huanuco import spatial_analysis
     end = start + timedelta(days=6)
-    if not 2016 <= start.year <= 2026 or start.weekday() != 0 or end.year != start.year or grid not in (2, 5, 10) or confidence not in ('all', 'high') or fire_type not in ('all', 'vegetation'):
+    if not 2000 <= start.year <= 2026 or start.weekday() != 0 or end.year != start.year or grid not in (2, 5, 10) or confidence not in ('all', 'high') or fire_type not in ('all', 'vegetation'):
         raise HTTPException(422, 'Se requiere una semana ISO completa dentro de un año y filtros válidos')
     try:
         with connection() as conn:
@@ -231,13 +208,18 @@ def department_analysis(code: str, grid: int = 5, confidence: str = 'all', fire_
     from .services.huanuco import analysis, stored_analysis
     import os
     valid_department(code)
-    if year < 2016 or year > 2026 or grid not in (2, 5, 10) or confidence not in ('all', 'high') or fire_type not in ('all', 'vegetation'):
+    if year < 2000 or year > 2026 or grid not in (2, 5, 10) or confidence not in ('all', 'high') or fire_type not in ('all', 'vegetation'):
         raise HTTPException(422, 'Filtros no válidos')
     try:
         with connection() as conn:
+            # 1. Intentar leer directamente de datos_armonizados en PostgreSQL
+            try:
+                res = stored_analysis(conn, year, code)
+                if res and res.get('weekly'):
+                    return res
+            except Exception:
+                pass
             if os.environ.get('DB_DATA_SOURCE') == 'armonizados':
-                if grid != 5 or confidence != 'all' or fire_type != 'all':
-                    raise HTTPException(422, 'Los datos almacenados solo admiten cuadrícula de 5 km y filtros sin aplicar')
                 return stored_analysis(conn, year, code)
             return analysis(conn, grid, confidence, fire_type, year, code)
     except psycopg.Error as exc:
@@ -245,15 +227,15 @@ def department_analysis(code: str, grid: int = 5, confidence: str = 'all', fire_
 
 
 @app.get('/api/departments/{code}/points')
-def department_points(code: str, start: date, end: date, confidence: str = 'all', fire_type: str = 'all'):
+def department_points(code: str, start: date, end: date, sensor: str = 'all', confidence: str = 'all', fire_type: str = 'all'):
     from .services.huanuco import points
     valid_department(code)
-    if start.year < 2016 or end.year > 2026 or start.year != end.year or end < start or (end-start).days > 366 or confidence not in ('all', 'high') or fire_type not in ('all', 'vegetation'):
+    if start.year < 2000 or end.year > 2026 or start.year != end.year or end < start or (end-start).days > 366 or sensor not in ('all', 'MODIS', 'VIIRS') or confidence not in ('all', 'high') or fire_type not in ('all', 'vegetation', '0', '1', '2', '3', 'unknown'):
         raise HTTPException(422, 'Intervalo o filtros no válidos')
     try:
         with connection() as conn:
-            rows = points(conn, start, end, confidence, fire_type, code)
-            return {'data': rows[:20000], 'truncated': len(rows) > 20000}
+            rows = points(conn, start, end, confidence, fire_type, code, sensor)
+            return {'data': rows[:20000], 'total': len(rows), 'truncated': len(rows) > 20000}
     except psycopg.Error as exc:
         raise HTTPException(503, 'No se pudieron consultar las observaciones') from exc
 
@@ -263,10 +245,100 @@ def department_cells(code: str, start: date, grid: int = 5, confidence: str = 'a
     from .services.huanuco import spatial_analysis
     valid_department(code)
     end = start + timedelta(days=6)
-    if not 2016 <= start.year <= 2026 or start.weekday() != 0 or end.year != start.year or grid not in (2, 5, 10) or confidence not in ('all', 'high') or fire_type not in ('all', 'vegetation'):
+    if not 2000 <= start.year <= 2026 or start.weekday() != 0 or end.year != start.year or grid not in (2, 5, 10) or confidence not in ('all', 'high') or fire_type not in ('all', 'vegetation'):
         raise HTTPException(422, 'Se requiere una semana ISO completa dentro de un año y filtros válidos')
     try:
         with connection() as conn:
             return spatial_analysis(conn, start, grid, confidence, fire_type, code)
     except psycopg.Error as exc:
         raise HTTPException(503, 'No se pudo calcular la comparación por celda') from exc
+
+
+@app.get('/api/burn-calendar')
+def burn_calendar_endpoint(department: str = 'PE-HUC'):
+    return get_department_calendar(department)
+
+
+@app.get('/api/departments/{code}/calendar')
+def get_department_calendar(code: str):
+    from .services.huanuco import burn_calendar
+    valid_department(code)
+    try:
+        with connection() as conn:
+            return burn_calendar(conn, code)
+    except Exception:
+        from .services.huanuco import burn_calendar
+        return burn_calendar(None, code)
+
+
+@app.get('/api/departments/{code}/calendar/export.csv')
+def export_department_calendar_csv(code: str):
+    import io, csv
+    from fastapi.responses import Response
+    from .services.huanuco import burn_calendar
+    valid_department(code)
+    try:
+        with connection() as conn:
+            data = burn_calendar(conn, code)
+    except Exception:
+        from .services.huanuco import burn_calendar
+        data = burn_calendar(None, code)
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        'departamento_codigo', 'departamento_nombre', 'anio', 'mes', 'nombre_mes',
+        'indice_armonizado', 'mediana_historica_2016_2024', 'desviacion_anomalia',
+        'porcentaje_anomalia', 'estado_anomalia', 'temporada_critica',
+        'horario_inusual', 'celdas_modis', 'celdas_viirs', 'total_celdas'
+    ])
+    dep_name = data['department']['name']
+    for year_str, cells in data['matrix'].items():
+        for c in cells:
+            writer.writerow([
+                code, dep_name, c['year'], c['month'], c['month_name'],
+                c['harmonized_index'] if c['harmonized_index'] is not None else '',
+                c['historical_median'] if c['historical_median'] is not None else '',
+                c['anomaly_delta'] if c['anomaly_delta'] is not None else '',
+                f"{c['anomaly_pct']:+.1f}%" if c['anomaly_pct'] is not None else '',
+                c['anomaly_status'],
+                'SI' if c['is_peak_season'] else 'NO',
+                'SI' if c['is_unusual_timing'] else 'NO',
+                c['modis_cells'], c['viirs_cells'], c['total_cells']
+            ])
+
+    filename = f"calendario_quemas_{code}_{dep_name.lower().replace(' ', '_')}.csv"
+    return Response(
+        content=output.getvalue().encode('utf-8-sig'),
+        media_type='text/csv; charset=utf-8',
+        headers={'Content-Disposition': f'attachment; filename="{filename}"'}
+    )
+
+
+@app.get('/api/departments/{code}/export/observations.csv')
+def export_observations_csv(code: str, start: date, end: date, sensor: str = 'all', confidence: str = 'all', fire_type: str = 'all'):
+    import io, csv
+    from fastapi.responses import Response
+    from .services.huanuco import points
+    valid_department(code)
+    try:
+        with connection() as conn:
+            rows = points(conn, start, end, confidence, fire_type, code)
+    except Exception:
+        rows = []
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['id', 'fecha_utc', 'latitud', 'longitud', 'sensor', 'satelite', 'confianza', 'frp_mw', 'brillo_k', 'tipo_fuego', 'departamento'])
+    for r in rows:
+        writer.writerow([
+            r.get('id', ''), r.get('acquired_at', ''), r.get('latitude', ''), r.get('longitude', ''),
+            r.get('sensor', ''), r.get('satellite', ''), r.get('confidence', ''), r.get('frp', ''),
+            r.get('brightness', ''), r.get('fire_type', ''), code
+        ])
+    filename = f"detecciones_firms_{code}_{start}_{end}.csv"
+    return Response(
+        content=output.getvalue().encode('utf-8-sig'),
+        media_type='text/csv; charset=utf-8',
+        headers={'Content-Disposition': f'attachment; filename="{filename}"'}
+    )

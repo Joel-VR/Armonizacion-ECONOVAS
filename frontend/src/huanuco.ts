@@ -101,3 +101,60 @@ export const dateText = (x: string) =>
   new Intl.DateTimeFormat('es-PE', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(
     new Date(x.slice(0, 10) + 'T00:00:00Z'),
   )
+
+export interface MonthCalendarCell {
+  year: number
+  month: number
+  month_name: string
+  month_short: string
+  harmonized_index: number | null
+  historical_median: number | null
+  baseline_p25?: number | null
+  baseline_p75?: number | null
+  anomaly_delta: number | null
+  anomaly_pct: number | null
+  anomaly_status: 'sin_datos' | 'unusually_low' | 'normal' | 'elevated' | 'critical'
+  modis_cells: number
+  viirs_cells: number
+  total_cells: number
+  weeks_count: number
+  is_peak_season: boolean
+  is_unusual_timing: boolean
+  is_baseline_year: boolean
+}
+
+export interface MonthlyBaseline {
+  month: number
+  name: string
+  short: string
+  baseline: {
+    median: number | null
+    p25: number | null
+    p75: number | null
+    min: number | null
+    max: number | null
+  }
+}
+
+export interface BurnCalendarData {
+  department: { code: string; name: string; srid: number }
+  years: number[]
+  months: MonthlyBaseline[]
+  matrix: Record<string, MonthCalendarCell[]>
+  peak_season: number[]
+  highest_month: {
+    year: number
+    month: number
+    month_name: string
+    value: number
+    anomaly_pct: number
+  } | null
+  critical_count: number
+  alerts: string[]
+  methodology: {
+    reference_period: string
+    grid_km: number
+    sensors: string
+    anomaly_formula: string
+  }
+}
