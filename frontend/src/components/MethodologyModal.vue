@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { X, BookOpen, Layers, Flame, Scale, AlertTriangle, ExternalLink } from '@lucide/vue'
+import { X, BookOpen, Layers, Flame, Scale, AlertTriangle, ExternalLink, Compass } from '@lucide/vue'
 
 defineProps<{ open: boolean }>()
 const emit = defineEmits<{ close: [] }>()
@@ -83,23 +83,51 @@ const emit = defineEmits<{ close: [] }>()
             <li><strong>No equivale a área quemada ni confirmación de campo:</strong> Los focos térmicos representan anomalías de temperatura en la superficie al momento del pase satelital; no determinan el perímetro final del incendio ni sustituyen el reporte de brigadistas.</li>
             <li><strong>Cobertura de nubes y humo espeso:</strong> La nubosidad densa o columnas intensas de humo pueden atenuar o enmascarar la radiación infrarroja, impidiendo la detección de fuegos activos subyacentes.</li>
             <li><strong>Sobrevuelos discretos:</strong> Satélites en órbita polar observan cada zona típicamente 2 veces al día por satélite. Fuegos de corta duración (p. ej., quemas agrícolas de 2 horas entre pases) pueden no ser detectados.</li>
-            <li><strong>Contexto territorial:</strong> En el módulo detallado de Huánuco, se incorpora la cobertura de suelo de MapBiomas Perú (Bosque, Agrícola, Mosaico Mixto, Agua, Urbano) para sugerir la naturaleza del fuego sin inventar perímetros de clasificación.</li>
           </ul>
         </section>
 
-        <!-- 4. Fuentes de Datos -->
+        <!-- 4. Hoja de Ruta (Roadmap): Contexto Territorial con MapBiomas -->
         <section class="doc-section">
-          <h3><Flame :size="18" /> 4. Fuentes de Datos y Citas</h3>
-          <p>Esta aplicación utiliza datos oficiales de:</p>
+          <h3><Compass :size="18" /> 4. Hoja de Ruta: Contextualización Territorial con MapBiomas Perú</h3>
+          <p>
+            Los satélites de la NASA detectan calor en la superficie, pero son ciegos a la tipología del suelo. Para potenciar la toma de decisiones, T'UKRI contempla una estrategia evolutiva en dos fases:
+          </p>
+          <div class="roadmap-grid">
+            <div class="roadmap-card phase-active">
+              <span class="phase-tag">Fase 1 · Operativa Nacional</span>
+              <h4>Armonización Sensor-a-Sensor (NASA FIRMS)</h4>
+              <ul>
+                <li>Cobertura de <strong>25 departamentos del Perú</strong> con 2.4M+ observaciones históricas y NRT.</li>
+                <li>Normalización a celdas-día de 5 km para evitar el sesgo de resolución de VIIRS (375 m) vs MODIS (1 km).</li>
+                <li>Detección automática de anomalías estadísticas respecto a la línea base histórica (2016–2024).</li>
+              </ul>
+            </div>
+            <div class="roadmap-card phase-active">
+              <span class="phase-tag active-tag">Fase 2 · Piloto Operativo en Huánuco</span>
+              <h4>Contextualización Territorial MapBiomas Perú (Col. 4)</h4>
+              <ul>
+                <li><strong>🌲 Bosque Natural:</strong> Alerta crítica / riesgo de incendio forestal o deforestación activa.</li>
+                <li><strong>🌾 Zona Agropecuaria:</strong> Quema de rastrojo y manejo agrícola en época de siembra.</li>
+                <li><strong>🏞️ Mosaico Mixto:</strong> Interfase agro-forestal de vegetación secundaria.</li>
+                <li><strong>Capas Interactivas y Filtro en Vivo:</strong> Disponible en Huánuco (150 m); escalamiento nacional en hoja de ruta.</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- 5. Fuentes de Datos -->
+        <section class="doc-section">
+          <h3><Flame :size="18" /> 5. Fuentes de Datos y Referencias</h3>
+          <p>Esta aplicación utiliza y referencia fuentes oficiales de:</p>
           <div class="sources-links">
             <a href="https://firms.modaps.eosdis.nasa.gov/" target="_blank" rel="noopener noreferrer">
-              NASA FIRMS (Fire Information for Resource Management System) <ExternalLink :size="13" />
-            </a>
-            <a href="https://peru.mapbiomas.org/" target="_blank" rel="noopener noreferrer">
-              MapBiomas Perú · Colección 4 de Cobertura y Uso del Suelo <ExternalLink :size="13" />
+              NASA FIRMS (Fire Information for Resource Management System) · Datos Operativos <ExternalLink :size="13" />
             </a>
             <a href="https://earthdata.nasa.gov/" target="_blank" rel="noopener noreferrer">
-              NASA Earthdata <ExternalLink :size="13" />
+              NASA Earthdata · Satélites Terra, Aqua y Suomi-NPP <ExternalLink :size="13" />
+            </a>
+            <a href="https://peru.mapbiomas.org/" target="_blank" rel="noopener noreferrer">
+              MapBiomas Perú · Colección 4 de Cobertura y Uso del Suelo (Roadmap Fase 2) <ExternalLink :size="13" />
             </a>
           </div>
         </section>
@@ -215,6 +243,65 @@ const emit = defineEmits<{ close: [] }>()
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+}
+.roadmap-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin: 1rem 0;
+}
+@media (max-width: 640px) {
+  .roadmap-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.roadmap-card {
+  padding: 1rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  display: flex;
+  flex-direction: column;
+}
+.phase-active {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+}
+.phase-future {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+}
+.phase-tag {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+  width: fit-content;
+  background: #dcfce7;
+  color: #15803d;
+}
+.future-tag {
+  background: #e2e8f0;
+  color: #475569;
+}
+.roadmap-card h4 {
+  font-weight: 750;
+  color: #0f172a;
+  margin: 0 0 0.5rem 0;
+  font-size: 0.92rem;
+}
+.roadmap-card ul {
+  padding-left: 1.15rem;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  color: #334155;
+  font-size: 0.82rem;
+  line-height: 1.45;
 }
 .inline-callout {
   background: #f1f5f9;
