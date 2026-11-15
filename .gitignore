@@ -12,3 +12,4 @@ data/processed/*
 
 # Descargas locales de sensores (no se versionan)
 data/modisViirs/
+data/backups/

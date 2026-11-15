@@ -1,39 +1,128 @@
 <script setup lang="ts">
-import { computed, ref, watch, defineAsyncComponent } from 'vue'
-import { Map, CalendarDays, ChartNoAxesCombined, Satellite, Info, SlidersHorizontal } from '@lucide/vue'
+import { computed, defineAsyncComponent, ref, watch } from 'vue'
+import {
+  Map,
+  CalendarDays,
+  ChartNoAxesCombined,
+  Info,
+  RefreshCw,
+} from '@lucide/vue'
 import MapView from './components/MapView.vue'
-import type { Analysis } from './huanuco'
+import { type ScreenedAnalysis, type Decision } from './huanuco'
 const CalendarView = defineAsyncComponent(() => import('./components/CalendarView.vue'))
 const HistoryView = defineAsyncComponent(() => import('./components/HistoryView.vue'))
 const view = ref('map')
-const mode = ref<'sensor' | 'harmonized'>('sensor')
-const nav = [{ id:'map', title:'Mapa principal', icon:Map }, { id:'calendar', title:'Calendario', icon:CalendarDays }, { id:'history', title:'Análisis histórico', icon:ChartNoAxesCombined }]
-const department = ref('PE-HUC')
-const departments = ref<{code:string; name:string}[]>([{code:'PE-HUC',name:'Huánuco'}])
-const departmentName = computed(() => departments.value.find(d=>d.code===department.value)?.name ?? department.value)
-fetch('/api/departments').then(async response => { if(!response.ok) throw new Error(); departments.value=(await response.json()).data }).catch(()=>{ error.value='No se pudo cargar la lista de departamentos.' })
-const year = ref(2026)
-const grid = ref(5), confidence = ref('all'), fireType = ref('all')
-const analysis = ref<Analysis | null>(null), loading = ref(false), error = ref('')
-let requestId = 0
-const query = computed(() => '/api/departments/'+encodeURIComponent(department.value)+'/analysis?'+new URLSearchParams({year:String(year.value),grid:String(grid.value),confidence:confidence.value,fire_type:fireType.value}).toString())
-watch(query, async q => {
-  const id = ++requestId; loading.value = true; error.value = ''; analysis.value = null
-  try { const response = await fetch(q); if(!response.ok) throw new Error('No se pudo consultar PostgreSQL. Revisa que la API esté iniciada.')
-    const data = await response.json(); if(id === requestId) analysis.value = data
-  } catch(e) { if(id === requestId) error.value = e instanceof Error ? e.message : 'Error de conexión' }
-  finally { if(id === requestId) loading.value = false }
-}, {immediate:true})
+const decision = ref<Decision>('candidate')
+const cover = ref('all'),
+  confidence = ref('all')
+const analysis = ref<ScreenedAnalysis | null>(null),
+  loading = ref(false),
+  error = ref('')
+const refresh = ref(0)
+const nav = [
+  { id: 'map', title: 'Mapa principal', icon: Map },
+  { id: 'calendar', title: 'Calendario', icon: CalendarDays },
+  { id: 'history', title: 'Análisis histórico', icon: ChartNoAxesCombined },
+]
+const query = computed(
+  () =>
+    '/api/huanuco/events/analysis?' +
+    new URLSearchParams({
+      decision: decision.value,
+      cover: cover.value,
+      confidence: confidence.value,
+      refresh: String(refresh.value),
+    }),
+)
+let controller: AbortController | undefined
+watch(
+  query,
+  async (q) => {
+    controller?.abort()
+    const active = new AbortController()
+    controller = active
+    loading.value = true
+    error.value = ''
+    analysis.value = null
+    try {
+      const response = await fetch(q, { signal: active.signal })
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}))
+        throw new Error(
+          body.detail || 'No se pudo consultar la base local. Comprueba que la API esté activa.',
+        )
+      }
+      const body = await response.json()
+      if (!active.signal.aborted) analysis.value = body
+    } catch (e) {
+      if (!active.signal.aborted)
+        error.value = e instanceof Error ? e.message : 'No se pudo conectar.'
+    } finally {
+      if (!active.signal.aborted) loading.value = false
+    }
+  },
+  { immediate: true },
+)
 </script>
 <template>
-<a href="#main" class="skip-link">Saltar al contenido</a><div class="app-shell huanuco-app">
-<header class="topbar"><a class="brand" href="#" @click.prevent="view='map'"><span class="brand-logo"><img src="/brand/brinco-alerta.png" alt="" /></span><span>BRINCO<span class="brand-alert">ALERTA</span><small>OBSERVAR PARA PROTEGER</small></span></a>
-<nav aria-label="Navegación principal"><button v-for="item in nav" :key="item.id" :class="{active:view===item.id}" :aria-current="view===item.id?'page':undefined" @click="view=item.id"><component :is="item.icon" :size="19" />{{ item.title }}</button></nav><span class="demo-indicator"><Satellite :size="16"/><span>{{ departmentName.toUpperCase() }}<small>Exploración · {{ year }}</small></span></span></header>
-<main id="main"><div class="page-heading"><div><span class="eyebrow"><span class="tiny-line"/>{{ departmentName.toUpperCase() }} · PERÚ · {{ year }}</span><h1>{{ view==='map'?'El territorio, de cerca.':view==='calendar'?'Cada día cuenta.':'Una mirada a lo largo del tiempo.' }}</h1><p>Observaciones satelitales de actividad térmica · MODIS y VIIRS Suomi</p></div><div class="update-status"><Satellite :size="20"/><div><strong>Fuentes disponibles hasta</strong><span v-if="analysis">MODIS {{ analysis.ends.MODIS }} · VIIRS {{ analysis.ends.VIIRS }}</span><span v-else>Consultando fuentes…</span></div></div></div>
-<section class="filter-panel" aria-label="Filtros de análisis"><div class="filter-heading"><SlidersHorizontal :size="19"/><span>Explorar el análisis</span><small>Los filtros se aplican a las tres vistas</small></div><label>Departamento<select v-model="department"><option v-for="d in departments" :key="d.code" :value="d.code">{{ d.name }}</option></select></label><label>Año<select v-model.number="year"><option v-for="y in 11" :key="y" :value="2027-y">{{ 2027-y }}</option></select></label><label>Cuadrícula<select v-model.number="grid"><option :value="2">2 × 2 km</option><option :value="5">5 × 5 km</option><option :value="10">10 × 10 km</option></select></label><label>Confianza<select v-model="confidence"><option value="all">Todas</option><option value="high">Alta por sensor</option></select></label><label>Tipo de anomalía<select v-model="fireType"><option value="all">Todos, incluidos desconocidos</option><option value="vegetation">Vegetación conocida (tipo 0)</option></select></label></section>
-<div class="view-mode" role="group" aria-label="Modo de visualización"><span>Visualización</span><button :class="{active:mode==='sensor'}" :aria-pressed="mode==='sensor'" @click="mode='sensor'">Por sensor</button><button :class="{active:mode==='harmonized'}" :aria-pressed="mode==='harmonized'" @click="mode='harmonized'">Armonizado <small>experimental</small></button></div>
-<p class="filter-explanation">{{ confidence==='high'?'Alta: MODIS ≥ 80 / VIIRS h. ':'' }}{{ fireType==='vegetation'?'El filtro excluye los registros sin tipo, incluidos los NRT. ':'' }}Los sensores tienen sensibilidades distintas; la cobertura de observación y del área de descarga es desconocida.</p>
-<div v-if="error" class="context-banner" role="alert">{{ error }}</div><div v-else-if="loading" class="context-banner" role="status">Calculando {{ departmentName }} y su referencia estacional…</div>
-<Transition name="view" mode="out-in"><MapView v-if="view==='map'" :key="department" :department="department" :department-name="departmentName" :mode="mode" :grid="grid" :year="year" :analysis="analysis" :confidence="confidence" :fire-type="fireType"/><CalendarView v-else-if="view==='calendar'" :department-name="departmentName" :analysis="analysis" :year="year" :mode="mode"/><HistoryView v-else :department-name="departmentName" :analysis="analysis" :year="year" :mode="mode"/></Transition>
-</main><footer class="app-footer"><p><Info :size="15"/>Una detección no confirma un incendio ni su causa. Sin detecciones no significa sin fuego.</p><span>NASA FIRMS · UTC</span></footer></div>
+  <a href="#main" class="skip-link">Saltar al contenido</a>
+  <div class="app-shell huanuco-app thematic-app" :class="{ 'map-page': view === 'map' }">
+    <header class="topbar">
+      <a class="brand turki-brand" href="#" @click.prevent="view = 'map'" aria-label="T'UKRI · Inicio">
+        <span class="brand-logo"><img src="/brand/turki.png" alt="Mascota de T'UKRI" /></span>
+        <span class="brand-name">T'UKRI</span>
+        <span class="brand-location">Huánuco<small>Perú · 2026</small></span>
+      </a>
+      <nav aria-label="Navegación principal">
+        <button
+          v-for="item in nav"
+          :key="item.id"
+          :class="{ active: view === item.id }"
+          :aria-current="view === item.id ? 'page' : undefined"
+          @click="view = item.id"
+        >
+          <component :is="item.icon" :size="18" />{{ item.title }}
+        </button>
+      </nav>
+      <button class="icon-button header-refresh" aria-label="Actualizar datos" title="Actualizar datos" @click="refresh++">
+        <RefreshCw :size="18" :class="{ spin: loading }" />
+      </button>
+    </header>
+    <main id="main">
+      <div v-if="view !== 'map'" class="page-heading">
+        <div>
+          <h1>
+            {{
+              view === 'map'
+                ? 'Detección de incendios forestales y quemas agrícolas'
+                : view === 'calendar'
+                  ? 'Cada día cuenta.'
+                  : 'El año, en perspectiva.'
+            }}
+          </h1>
+        </div>
+      </div>
+      <div v-if="error" class="context-banner" role="alert"><Info :size="16" />{{ error }}</div>
+      <p v-else-if="loading" class="loading-inline" role="status">
+        Consultando las observaciones evaluadas…
+      </p>
+      <MapView
+        v-if="view === 'map'"
+        :decision="decision"
+        :cover="cover"
+        :confidence="confidence"
+        :refresh="refresh"
+        :analysis="analysis"
+      />
+      <CalendarView v-else-if="view === 'calendar'" :analysis="analysis" :decision="decision" />
+      <HistoryView v-else :analysis="analysis" :decision="decision" />
+    </main>
+    <footer class="app-footer">
+      <p>
+        <Info :size="15" />Una observación no equivale a un incendio. La cobertura anterior y el
+        centro del píxel son aproximaciones.
+      </p>
+      <span>NASA FIRMS · MapBiomas Perú · UTC</span>
+    </footer>
+  </div>
 </template>

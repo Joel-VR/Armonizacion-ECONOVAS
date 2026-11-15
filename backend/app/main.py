@@ -9,6 +9,84 @@ from .database import database_config
 app = FastAPI(title='Brinco Alerta API', version='0.2.0')
 
 
+@app.get('/api/huanuco/events/analysis')
+def event_analysis():
+    from .services.events import summary
+    try:
+        with connection() as conn:
+            return summary(conn)
+    except ValueError as exc:
+        raise HTTPException(503, str(exc)) from exc
+    except psycopg.Error as exc:
+        raise HTTPException(503, 'No se pudieron consultar los eventos de Huánuco.') from exc
+
+
+@app.get('/api/huanuco/events')
+def event_points(start: date = date(2026,1,1), end: date = date(2026,12,31), month: int | None = None):
+    from .services.events import points
+    if month is not None:
+        if month < 1 or month > 12:
+            raise HTTPException(422, 'Mes debe estar entre 1 y 12.')
+        start = date(2026, month, 1)
+        end = date(2027, 1, 1) - timedelta(days=1) if month == 12 else date(2026, month + 1, 1) - timedelta(days=1)
+    if start.year != 2026 or end.year != 2026 or end < start:
+        raise HTTPException(422, 'Seleccione un intervalo válido dentro de 2026.')
+    try:
+        with connection() as conn:
+            return points(conn, start, end)
+    except ValueError as exc:
+        raise HTTPException(503, str(exc)) from exc
+    except psycopg.Error as exc:
+        raise HTTPException(503, 'No se pudieron consultar los eventos de Huánuco.') from exc
+
+
+@app.get('/api/huanuco/events/{event_id}')
+def event_detail(event_id: int):
+    from .services.events import detail
+    if event_id < 1:
+        raise HTTPException(422, 'Identificador de evento inválido.')
+    try:
+        with connection() as conn:
+            result = detail(conn, event_id)
+        if result is None:
+            raise HTTPException(404, 'Evento no disponible en la ejecución activa de Huánuco.')
+        return result
+    except psycopg.Error as exc:
+        raise HTTPException(503, 'No se pudo consultar el detalle del evento.') from exc
+
+
+@app.get('/api/huanuco/land-cover')
+def huanuco_land_cover():
+    from .services.screening import metadata
+    return metadata()
+
+
+@app.get('/api/huanuco/screened/analysis')
+def screened_analysis(decision: str = 'candidate', cover: str = 'all', confidence: str = 'all'):
+    from .services.screening import summary
+    try:
+        with connection() as conn:
+            return summary(conn, decision, cover, confidence)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except psycopg.Error as exc:
+        raise HTTPException(503, 'No se pudieron consultar las evaluaciones. Prepare primero la capa de Huánuco.') from exc
+
+
+@app.get('/api/huanuco/screened/points')
+def screened_points(start: date, end: date, decision: str = 'candidate', cover: str = 'all', confidence: str = 'all'):
+    from .services.screening import points
+    if start.year != 2026 or end.year != 2026 or end < start:
+        raise HTTPException(422, 'Seleccione un intervalo válido dentro de 2026.')
+    try:
+        with connection() as conn:
+            return points(conn, start, end, decision, cover, confidence)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except psycopg.Error as exc:
+        raise HTTPException(503, 'No se pudieron consultar las observaciones evaluadas.') from exc
+
+
 def connection():
     try:
         return psycopg.connect(**database_config(), row_factory=dict_row, options='-c timezone=UTC')
