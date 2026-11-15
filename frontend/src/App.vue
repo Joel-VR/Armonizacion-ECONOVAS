@@ -348,16 +348,17 @@ function onNavigateToMap({ year: yr, month: m }: { year: number; month: number }
 .dept-trigger {
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.4rem;
   background: #f8fafc;
-  padding: 0.3rem 0.65rem;
-  border-radius: 8px;
+  padding: 0.2rem 0.55rem;
+  border-radius: 7px;
   border: 1px solid #e2e8f0;
   cursor: pointer;
   transition: all 0.15s ease;
   user-select: none;
   font-family: inherit;
   outline: none;
+  height: 28px;
 }
 
 .dept-trigger:hover {
@@ -380,7 +381,7 @@ function onNavigateToMap({ year: yr, month: m }: { year: number; month: number }
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 750;
   color: #64748b;
   text-transform: uppercase;
@@ -388,7 +389,7 @@ function onNavigateToMap({ year: yr, month: m }: { year: number; month: number }
 }
 
 .dept-current-name {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 800;
   color: #0f172a;
 }
@@ -557,17 +558,18 @@ function onNavigateToMap({ year: yr, month: m }: { year: number; month: number }
 .methodology-pill-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.24rem 0.68rem;
+  gap: 0.3rem;
+  padding: 0.2rem 0.6rem;
   background: #fffbeb;
   border: 1px solid #fde68a;
   border-radius: 9999px;
   color: #b45309;
   font-weight: 800;
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   cursor: pointer;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   transition: all 0.15s ease;
+  height: 27px;
 }
 .methodology-pill-btn:hover {
   background: #fef3c7;

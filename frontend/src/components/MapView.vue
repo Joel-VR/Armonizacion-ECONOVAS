@@ -449,7 +449,7 @@ function downloadGeoJSON() {
             <label>
               Sensor
               <select v-model="sensor">
-                <option value="all">Ambos (MODIS + VIIRS)</option>
+                <option value="all">(MODIS + VIIRS)</option>
                 <option>MODIS</option>
                 <option>VIIRS</option>
               </select>
