@@ -12,6 +12,7 @@ data/raw/*
 !data/raw/.gitkeep
 data/processed/*
 !data/processed/.gitkeep
+!data/processed/burn_calendar_summary.json
 
 # Descargas locales de sensores (no se versionan)
 data/modisViirs/
