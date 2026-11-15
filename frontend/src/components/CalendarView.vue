@@ -316,6 +316,15 @@ function downloadCalendarCSV() {
             <span class="inline-note">Mostrando semanas ISO del año {{ selectedYear }} en {{ calendarData?.department.name }}.</span>
           </div>
 
+          <!-- Banner explicativo para la Era Pre-VIIRS -->
+          <div v-if="selectedYear < 2012" class="pre-viirs-banner">
+            <Info :size="16" class="pre-viirs-icon" />
+            <div>
+              <strong>Era Pre-VIIRS ({{ selectedYear }}):</strong>
+              El sensor VIIRS (375 m) inició transmisiones en 2012. Para los años 2000–2011, el monitoreo satelital operaba exclusivamente con el sensor <strong>MODIS (Terra y Aqua a 1 km)</strong>.
+            </div>
+          </div>
+
           <div v-if="!analysis?.weekly.length" class="empty-state">
             <p>No se encontraron datos semanales disponibles para {{ selectedYear }}.</p>
           </div>
@@ -348,6 +357,20 @@ function downloadCalendarCSV() {
                   <span v-if="(w.combined || 0) >= 0.75" class="badge badge-red">Crítico</span>
                   <span v-else-if="(w.combined || 0) >= 0.45" class="badge badge-amber">Elevado</span>
                   <span v-else-if="w.combined !== null" class="badge badge-green">Normal</span>
+                  <span
+                    v-else-if="w.sensors.MODIS.cells !== null && w.sensors.VIIRS.cells !== null"
+                    class="badge badge-blue"
+                    title="Actividad basal típica de temporada de lluvias con empates en cero en la serie histórica (metodología NASA)"
+                  >
+                    Actividad basal
+                  </span>
+                  <span
+                    v-else-if="w.sensors.MODIS.cells !== null && w.sensors.VIIRS.cells === null"
+                    class="badge badge-purple"
+                    :title="w.sensors.MODIS.cells > 0 ? `MODIS registró ${w.sensors.MODIS.cells} celdas activas (VIIRS aún no operaba en ${selectedYear})` : `Actividad basal en MODIS (VIIRS aún no operaba en ${selectedYear})`"
+                  >
+                    {{ w.sensors.MODIS.cells > 0 ? 'Solo MODIS (' + w.sensors.MODIS.cells + ')' : 'Basal (MODIS)' }}
+                  </span>
                   <span v-else class="badge badge-gray">Sin datos</span>
                 </td>
               </tr>
@@ -421,9 +444,15 @@ function downloadCalendarCSV() {
             </div>
             <div class="sensor-row">
               <span class="sensor-badge viirs-badge">VIIRS Suomi (375 m)</span>
-              <strong>{{ selectedCell.viirs_cells.toLocaleString('es-PE') }} celdas</strong>
+              <strong v-if="selectedCell.year < 2012" class="text-muted" title="Sensor no lanzado en este año (inició transmisiones en 2012)">
+                No disponible (inició 2012)
+              </strong>
+              <strong v-else>{{ selectedCell.viirs_cells.toLocaleString('es-PE') }} celdas</strong>
             </div>
-            <p class="sensor-disclaimer">
+            <p class="sensor-disclaimer" v-if="selectedCell.year < 2012">
+              <Info :size="13" /> Entre 2000 y 2011 (era Pre-VIIRS), la detección operaba exclusivamente con el sensor MODIS. VIIRS inició sus transmisiones en 2012.
+            </p>
+            <p class="sensor-disclaimer" v-else>
               <Info :size="13" /> VIIRS detecta fuegos de menor escala y quemas frías debido a su mayor resolución espacial (375 m vs 1 km). La armonización nivela este sesgo.
             </p>
           </div>
@@ -865,7 +894,35 @@ function downloadCalendarCSV() {
 .badge-red { background: #fee2e2; color: #b91c1c; }
 .badge-amber { background: #fef3c7; color: #b45309; }
 .badge-green { background: #dcfce7; color: #15803d; }
+.badge-blue { background: #e0f2fe; color: #0369a1; }
+.badge-purple { background: #f3e8ff; color: #7e22ce; }
 .badge-gray { background: #f1f5f9; color: #64748b; }
+
+.pre-viirs-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-left: 4px solid #6366f1;
+  border-radius: 8px;
+  padding: 0.6rem 0.85rem;
+  margin-bottom: 0.9rem;
+  font-size: 0.78rem;
+  color: #334155;
+  line-height: 1.4;
+}
+
+.pre-viirs-icon {
+  color: #6366f1;
+  flex-shrink: 0;
+}
+
+.text-muted {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  font-weight: 600;
+}
 
 /* Detail Drawer */
 .detail-drawer {
