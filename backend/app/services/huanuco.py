@@ -43,6 +43,28 @@ def geometry(code='PE-HUC'):
     return department(code)['geometry']
 
 
+def stored_analysis(conn, year, code):
+    """Lee los indicadores existentes sin atribuirles observaciones diarias."""
+    region = department(code)
+    rows = conn.execute("""SELECT * FROM public.datos_armonizados
+        WHERE departamento = %s AND anio = %s AND cuadricula_km = 5
+          AND metodo = 'experimental_v1' ORDER BY semana_inicio""", (region['name'], year)).fetchall()
+    weekly = []
+    for r in rows:
+        sensors = {}
+        for sensor, prefix in (('MODIS', 'modis'), ('VIIRS', 'viirs')):
+            value_prefix = 'viirs_suomi' if sensor == 'VIIRS' else prefix
+            sensors[sensor] = {'cells': r[value_prefix + '_celdas_dia'], 'percentile': r[value_prefix + '_percentil'],
+                               'sample': r[prefix + '_semanas_referencia'], 'years': r[prefix + '_anios_referencia'],
+                               'ties': r[prefix + '_fraccion_empates']}
+        weekly.append({'start': r['semana_inicio'], 'end': r['semana_fin'], 'week': r['semana_iso'],
+                       'sensors': sensors, 'combined': r['indice_combinado'], 'disagreement': r['diferencia_sensores']})
+    ends = {'MODIS': rows[0]['ultimo_registro_modis'], 'VIIRS': rows[0]['ultimo_registro_viirs']} if rows else {'MODIS': None, 'VIIRS': None}
+    return {'weekly': weekly, 'daily': [], 'daily_available': False, 'starts': {'MODIS': None, 'VIIRS': None},
+            'ends': ends, 'year': year, 'grid_km': 5, 'confidence': 'all', 'fire_type': 'all',
+            'department': {'code': code, 'name': region['name'], 'srid': region['srid']}}
+
+
 def percentile(value, sample):
     return (sum(v < value for v in sample) + .5 * sum(v == value for v in sample)) / len(sample)
 

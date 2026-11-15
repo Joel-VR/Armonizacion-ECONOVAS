@@ -1,4 +1,5 @@
 from datetime import date, datetime, time, timedelta, timezone
+import os
 
 import psycopg
 from fastapi import FastAPI, HTTPException, Query
@@ -13,7 +14,7 @@ app = FastAPI(title='Brinco Alerta API', version='0.2.0')
 def event_analysis():
     from .services.events import summary
     try:
-        with connection() as conn:
+        with connection(events=True) as conn:
             return summary(conn)
     except ValueError as exc:
         raise HTTPException(503, str(exc)) from exc
@@ -32,7 +33,7 @@ def event_points(start: date = date(2026,1,1), end: date = date(2026,12,31), mon
     if start.year != 2026 or end.year != 2026 or end < start:
         raise HTTPException(422, 'Seleccione un intervalo válido dentro de 2026.')
     try:
-        with connection() as conn:
+        with connection(events=True) as conn:
             return points(conn, start, end)
     except ValueError as exc:
         raise HTTPException(503, str(exc)) from exc
@@ -46,7 +47,7 @@ def event_detail(event_id: int):
     if event_id < 1:
         raise HTTPException(422, 'Identificador de evento inválido.')
     try:
-        with connection() as conn:
+        with connection(events=True) as conn:
             result = detail(conn, event_id)
         if result is None:
             raise HTTPException(404, 'Evento no disponible en la ejecución activa de Huánuco.')
@@ -87,9 +88,12 @@ def screened_points(start: date, end: date, decision: str = 'candidate', cover: 
         raise HTTPException(503, 'No se pudieron consultar las observaciones evaluadas.') from exc
 
 
-def connection():
+def connection(events=False):
     try:
-        return psycopg.connect(**database_config(), row_factory=dict_row, options='-c timezone=UTC')
+        if events and os.environ.get('DB_DATA_SOURCE') == 'armonizados' and not os.environ.get('EVENTS_DB_HOST'):
+            raise ValueError('Para mostrar eventos en el mapa configure la conexión EVENTS_DB_* a una base con eventos de Huánuco.')
+        source = 'EVENTS' if events and os.environ.get('EVENTS_DB_HOST') else None
+        return psycopg.connect(**database_config(source), row_factory=dict_row, options='-c timezone=UTC')
     except ValueError as exc:
         raise HTTPException(503, str(exc)) from exc
     except psycopg.Error:
@@ -99,6 +103,36 @@ def connection():
 @app.get('/api/health')
 def health():
     return {'status': 'ok'}
+
+
+@app.get('/api/huanuco/observations')
+def raw_huanuco_observations(start: date, end: date, sensor: str = 'all', confidence: str = 'all', fire_type: str = 'all'):
+    if not 2016 <= start.year <= 2026 or end.year != start.year or end < start or sensor not in ('all', 'MODIS', 'VIIRS') or confidence not in ('all', 'high') or fire_type not in ('all', '0', '1', '2', '3', 'unknown'):
+        raise HTTPException(422, 'Seleccione un intervalo dentro de un año entre 2016 y 2026 y filtros válidos.')
+    query = """WITH observations AS (
+        SELECT 'MODIS' AS sensor, latitude, longitude, acq_date, acq_time, satellite, confidence,
+               type AS fire_type, frp, brightness, scan, track, daynight, version
+          FROM public.modis WHERE departamento = 'Huánuco' AND acq_date >= %(start)s AND acq_date <= %(end)s
+        UNION ALL
+        SELECT 'VIIRS' AS sensor, latitude, longitude, acq_date, acq_time, satellite, confidence,
+               type AS fire_type, frp, brightness, scan, track, daynight, version
+          FROM public.viirs WHERE departamento = 'Huánuco' AND satellite = 'SNPP' AND acq_date >= %(start)s AND acq_date <= %(end)s
+    ), selected AS (
+        SELECT * FROM observations WHERE latitude IS NOT NULL AND longitude IS NOT NULL
+          AND (%(sensor)s = 'all' OR sensor = %(sensor)s)
+          AND (%(fire_type)s = 'all' OR (%(fire_type)s = 'unknown' AND fire_type IS NULL) OR fire_type = %(fire_type)s)
+          AND (%(confidence)s = 'all' OR (sensor = 'VIIRS' AND lower(confidence) = 'h')
+               OR (sensor = 'MODIS' AND CASE WHEN confidence ~ '^[0-9]{1,3}$' THEN confidence::integer >= 80 ELSE false END))
+    ) SELECT *, count(*) OVER () AS total FROM selected ORDER BY acq_date DESC, acq_time DESC LIMIT 20000"""
+    try:
+        with connection() as conn:
+            rows = conn.execute(query, {'start': start.isoformat(), 'end': end.isoformat(), 'sensor': sensor, 'confidence': confidence, 'fire_type': fire_type}).fetchall()
+        total = rows[0]['total'] if rows else 0
+        for row in rows:
+            row.pop('total')
+        return {'data': rows, 'total': total, 'truncated': total > len(rows)}
+    except psycopg.Error as exc:
+        raise HTTPException(503, 'No se pudieron consultar las observaciones de Huánuco.') from exc
 
 
 def bounds(start: date, end: date):
@@ -194,12 +228,17 @@ def valid_department(code):
 
 @app.get('/api/departments/{code}/analysis')
 def department_analysis(code: str, grid: int = 5, confidence: str = 'all', fire_type: str = 'all', year: int = 2026):
-    from .services.huanuco import analysis
+    from .services.huanuco import analysis, stored_analysis
+    import os
     valid_department(code)
     if year < 2016 or year > 2026 or grid not in (2, 5, 10) or confidence not in ('all', 'high') or fire_type not in ('all', 'vegetation'):
         raise HTTPException(422, 'Filtros no válidos')
     try:
         with connection() as conn:
+            if os.environ.get('DB_DATA_SOURCE') == 'armonizados':
+                if grid != 5 or confidence != 'all' or fire_type != 'all':
+                    raise HTTPException(422, 'Los datos almacenados solo admiten cuadrícula de 5 km y filtros sin aplicar')
+                return stored_analysis(conn, year, code)
             return analysis(conn, grid, confidence, fire_type, year, code)
     except psycopg.Error as exc:
         raise HTTPException(503, 'No se pudo calcular el análisis') from exc

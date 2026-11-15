@@ -3,9 +3,27 @@ import unittest
 from pathlib import Path
 from datetime import date
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from app.services.huanuco import percentile, weekly_analysis, cell_comparison, departments, geometry
+from app.services.huanuco import percentile, weekly_analysis, cell_comparison, departments, geometry, stored_analysis
 
 class HuanucoTest(unittest.TestCase):
+    def test_stored_analysis_keeps_weekly_values_and_marks_daily_unavailable(self):
+        from unittest.mock import Mock
+        row = {'semana_inicio': date(2026, 1, 5), 'semana_fin': date(2026, 1, 11), 'semana_iso': 2,
+               'indice_combinado': .4, 'diferencia_sensores': .2,
+               'ultimo_registro_modis': date(2026, 11, 1), 'ultimo_registro_viirs': date(2026, 11, 2)}
+        for prefix in ('modis', 'viirs'):
+            value_prefix = 'viirs_suomi' if prefix == 'viirs' else prefix
+            row.update({value_prefix + '_celdas_dia': 3, value_prefix + '_percentil': .4,
+                        prefix + '_semanas_referencia': 40, prefix + '_anios_referencia': 8,
+                        prefix + '_fraccion_empates': .1})
+        conn = Mock()
+        conn.execute.return_value.fetchall.return_value = [row]
+        result = stored_analysis(conn, 2026, 'PE-HUC')
+        self.assertFalse(result['daily_available'])
+        self.assertEqual(result['weekly'][0]['combined'], .4)
+        self.assertEqual(result['weekly'][0]['sensors']['VIIRS']['cells'], 3)
+        self.assertEqual(conn.execute.call_args.args[1], ('Huánuco', 2026))
+
     def test_departments_and_lima_components(self):
         import json
         regions = departments()
