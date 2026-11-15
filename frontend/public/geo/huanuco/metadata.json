@@ -1,0 +1,71 @@
+{
+  "ready": true,
+  "provider": "MapBiomas Perú",
+  "year": 2025,
+  "collection": 4,
+  "department": "PE-HUC",
+  "license": "CC BY 4.0",
+  "source_url": "https://plataforma.mapbiomas.org/projects/mapbiomas/peru",
+  "rule_version": "huanuco-context-v1",
+  "coordinates": [
+    [
+      -77.32203892294574,
+      -8.313907954526185
+    ],
+    [
+      -74.51929523649284,
+      -8.313907954526185
+    ],
+    [
+      -74.51929523649284,
+      -10.483326896373557
+    ],
+    [
+      -77.32203892294574,
+      -10.483326896373557
+    ]
+  ],
+  "layers": [
+    {
+      "id": "forest",
+      "label": "Bosque",
+      "color": "#298743",
+      "url": "/geo/huanuco/forest.png"
+    },
+    {
+      "id": "agriculture",
+      "label": "Agrícola",
+      "color": "#f2cf45",
+      "url": "/geo/huanuco/agriculture.png"
+    },
+    {
+      "id": "mixed",
+      "label": "Mosaico mixto",
+      "color": "#e7d9b1",
+      "url": "/geo/huanuco/mixed.png"
+    },
+    {
+      "id": "water",
+      "label": "Agua",
+      "color": "#348de5",
+      "url": "/geo/huanuco/water.png"
+    },
+    {
+      "id": "urban",
+      "label": "Urbano",
+      "color": "#d55b56",
+      "url": "/geo/huanuco/urban.png"
+    },
+    {
+      "id": "other",
+      "label": "Otras coberturas",
+      "color": "#c4cbd2",
+      "url": "/geo/huanuco/other.png"
+    }
+  ],
+  "display_resolution_m": 150,
+  "classification": "native pixel at observation centre",
+  "warning": "Cobertura de referencia 2025; no describe cambios de 2026.",
+  "layer_id": "mapbiomas-peru-col4-2025-huanuco",
+  "display_classification": "Crop codes 35,40; mixed 21 separated; pastures/plantations in other."
+}

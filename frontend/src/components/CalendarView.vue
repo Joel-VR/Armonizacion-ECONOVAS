@@ -1,21 +1,134 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import { ChevronLeft, ChevronRight, CalendarDays, Info } from '@lucide/vue'
-import type { Analysis } from '../huanuco'
-import { dateText, percent } from '../huanuco'
-const props=defineProps<{analysis:Analysis|null;year:number;departmentName:string;mode:'sensor'|'harmonized'}>()
-const month=ref(8), selected=ref(props.year+'-09-01')
-watch(() => props.year, year => { month.value=8; selected.value=year+'-09-01' })
-const months=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
-const key=(day:number)=>props.year+'-'+String(month.value+1).padStart(2,'0')+'-'+String(day).padStart(2,'0')
-const days=computed(()=>new Date(Date.UTC(props.year,month.value+1,0)).getUTCDate())
-const offset=computed(()=>(new Date(Date.UTC(props.year,month.value,1)).getUTCDay()+6)%7)
-const counts=computed(()=>{const m=new Map<string,number>();for(const d of props.analysis?.daily??[])m.set(d.day,(m.get(d.day)??0)+d.detections);return m})
-const dayLabel=(day:number) => { const date=key(day); if(!props.analysis) return 'datos no disponibles'; const available=Object.values(props.analysis.ends).filter(end=>date<=end).length; if(!available) return 'fuera del periodo disponible'; return (counts.value.get(date) ?? 0)+' detecciones registradas'+(available===1?' (un sensor disponible)':'') }
-const weekFor=(day:number)=>props.analysis?.weekly.find(w=>w.start<=key(day)&&w.end>=key(day))
-const category=(day:number)=>{const value=weekFor(day)?.combined;return value==null?'h-missing':value<.25?'h-low':value<.75?'h-mid':value<.90?'h-high':'h-extreme'}
-const selectedRows=computed(()=>props.analysis?.daily.filter(d=>d.day===selected.value)??[])
-const week=computed(()=>props.analysis?.weekly.find(w=>w.start<=selected.value && w.end>=selected.value))
-function change(delta:number){month.value=Math.max(0,Math.min(11,month.value+delta));selected.value=key(1)}
+import { decisionLabels, type Decision, type ScreenedAnalysis } from '../huanuco'
+const props = defineProps<{ analysis: ScreenedAnalysis | null; decision: Decision }>()
+const month = ref(10),
+  selected = ref('2026-11-01')
+const months = [
+  'Enero',
+  'Febrero',
+  'Marzo',
+  'Abril',
+  'Mayo',
+  'Junio',
+  'Julio',
+  'Agosto',
+  'Septiembre',
+  'Octubre',
+  'Noviembre',
+]
+const key = (day: number) =>
+  '2026-' + String(month.value + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0')
+const days = computed(() => new Date(Date.UTC(2026, month.value + 1, 0)).getUTCDate())
+const offset = computed(() => (new Date(Date.UTC(2026, month.value, 1)).getUTCDay() + 6) % 7)
+const counts = computed(() => {
+  const result = new Map<string, number>()
+  for (const r of props.analysis?.event_daily ?? [])
+    result.set(r.day, (result.get(r.day) ?? 0) + r.events)
+  return result
+})
+const rows = computed(() => props.analysis?.daily.filter((r) => r.day === selected.value) ?? [])
+const beyond = (day: number) => key(day) > '2026-11-13'
+function change(delta: number) {
+  month.value = Math.max(0, Math.min(10, month.value + delta))
+  selected.value = key(1)
+}
 </script>
-<template><div class="secondary-view"><div class="context-banner"><span class="badge badge-yellow">{{ departmentName.toUpperCase() }} · {{ year }}</span><p>{{ mode==='sensor' ? 'Los números diarios son detecciones, no incendios.' : 'Cada día muestra el índice experimental de su semana ISO; — indica que no es comparable.' }} La cobertura del satélite es desconocida.</p></div><div class="calendar-layout"><section class="surface calendar-card"><div class="section-title"><div><span class="eyebrow">CALENDARIO DE OBSERVACIONES</span><h2>{{ months[month] }} <span class="muted">{{ year }}</span></h2></div><div class="calendar-actions"><button class="icon-button" aria-label="Mes anterior" :disabled="month===0" @click="change(-1)"><ChevronLeft :size="20"/></button><button class="icon-button" aria-label="Mes siguiente" :disabled="month===11" @click="change(1)"><ChevronRight :size="20"/></button></div></div><div class="calendar-grid weekdays"><span v-for="d in ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom']" :key="d">{{ d }}</span></div><div class="calendar-grid dates"><span v-for="i in offset" :key="'offset'+i"/><button v-for="day in days" :key="day" :class="{selected:selected===key(day),'has-data':mode==='sensor' && counts.has(key(day)), [mode==='harmonized' ? category(day) : '']:mode==='harmonized'}" :aria-pressed="selected===key(day)" :aria-label="key(day)+': '+(mode==='sensor'?dayLabel(day):'índice semanal '+percent(weekFor(day)?.combined ?? null))" @click="selected=key(day)"><span>{{ day }}</span><small v-if="mode==='harmonized'">{{ percent(weekFor(day)?.combined ?? null) }}</small><small v-else-if="counts.has(key(day))"><i/>{{ counts.get(key(day)) }}</small><span v-else class="day-empty">—</span></button></div><div class="calendar-key"><span v-if="mode==='sensor'"><i/>Con detecciones registradas</span><span v-else>Índice semanal: verde &lt;25% · amarillo 25–74% · naranja 75–89% · rojo ≥90% · gris sin comparación</span><span>Fecha UTC</span></div></section><aside class="surface calendar-detail"><span class="eyebrow"><CalendarDays :size="15"/>DÍA SELECCIONADO</span><h2>{{ dateText(selected) }} {{ year }}</h2><p>Departamento de {{ departmentName }}</p><div v-if="mode==='sensor'" class="sensor-mini"><div v-for="sensor in ['MODIS','VIIRS']" :key="sensor"><span>{{ sensor }}</span><strong>{{ analysis && selected >= analysis.starts[sensor as 'MODIS' | 'VIIRS'] && selected <= analysis.ends[sensor as 'MODIS' | 'VIIRS'] ? selectedRows.find(r=>r.sensor===sensor)?.detections ?? 0 : '—' }}</strong><small>{{ analysis && selected > analysis.ends[sensor as 'MODIS' | 'VIIRS'] ? 'Fuera del periodo disponible' : 'detecciones registradas' }}</small></div></div><div v-if="week" class="week-card"><span class="eyebrow">SEMANA {{ week.week }} · {{ dateText(week.start) }} – {{ dateText(week.end) }}</span><h3>Actividad observada</h3><p v-if="mode==='sensor'">MODIS: {{ week.sensors.MODIS.cells ?? 'sin datos completos' }} celdas-día · percentil {{ percent(week.sensors.MODIS.percentile) }}</p><p v-if="mode==='sensor'">VIIRS: {{ week.sensors.VIIRS.cells ?? 'sin datos completos' }} celdas-día · percentil {{ percent(week.sensors.VIIRS.percentile) }}</p><p>Combinado experimental: <strong>{{ percent(week.combined) }}</strong></p><details v-if="mode==='harmonized'"><summary>Ver componentes por sensor</summary><p>MODIS: {{ percent(week.sensors.MODIS.percentile) }} · VIIRS: {{ percent(week.sensors.VIIRS.percentile) }}</p></details><p v-if="week.disagreement !== null">Diferencia entre sensores: {{ percent(week.disagreement) }} <strong v-if="week.disagreement > .25">· Discrepan</strong></p><p v-else>No comparable: semana incompleta o referencia con muchos empates.</p></div><p class="inline-note"><Info :size="15"/>Un día sin registros puede reflejar falta de observación útil.</p></aside></div></div></template>
+<template>
+  <div class="secondary-view">
+    <div class="context-banner">
+      <span class="badge badge-yellow">{{ decisionLabels[decision] }}</span>
+      <p>
+        Mismos filtros que el mapa · Huánuco 2026. Los conteos representan inicios de agrupaciones
+        probables; el detalle conserva sus observaciones.
+      </p>
+    </div>
+    <div class="calendar-layout">
+      <section class="surface calendar-card">
+        <div class="section-title">
+          <div>
+            <span class="eyebrow">CALENDARIO EVALUADO</span>
+            <h2>{{ months[month] }} <span class="muted">2026</span></h2>
+          </div>
+          <div class="calendar-actions">
+            <button
+              class="icon-button"
+              aria-label="Mes anterior"
+              :disabled="month === 0"
+              @click="change(-1)"
+            >
+              <ChevronLeft :size="20" /></button
+            ><button
+              class="icon-button"
+              aria-label="Mes siguiente"
+              :disabled="month === 10"
+              @click="change(1)"
+            >
+              <ChevronRight :size="20" />
+            </button>
+          </div>
+        </div>
+        <div class="calendar-grid weekdays">
+          <span v-for="d in ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']" :key="d">{{
+            d
+          }}</span>
+        </div>
+        <div class="calendar-grid dates">
+          <span v-for="i in offset" :key="'offset-' + i" /><button
+            v-for="day in days"
+            :key="day"
+            :disabled="beyond(day)"
+            :class="{ selected: selected === key(day), 'has-data': counts.has(key(day)) }"
+            :aria-pressed="selected === key(day)"
+            :aria-label="
+              key(day) +
+              ': ' +
+              (beyond(day)
+                ? 'fuera de la descarga'
+                : (counts.get(key(day)) ?? 0) + ' eventos probables')
+            "
+            @click="selected = key(day)"
+          >
+            <span>{{ day }}</span><small v-if="counts.has(key(day))"
+              ><i />{{ counts.get(key(day)) }}</small
+            ><span v-else class="day-empty">—</span>
+          </button>
+        </div>
+        <div class="calendar-key">
+          <span><i />Con eventos probables</span
+          ><span>Fechas UTC · Sin registros no significa sin fuego</span>
+        </div>
+      </section>
+      <aside class="surface calendar-detail">
+        <span class="eyebrow"><CalendarDays :size="15" />DÍA SELECCIONADO</span>
+        <h2>{{ selected }}</h2>
+        <p>Huánuco · {{ decisionLabels[decision] }}</p>
+        <div class="sensor-mini">
+          <div v-for="sensor in ['MODIS', 'VIIRS'] as const" :key="sensor">
+            <span>{{ sensor }}</span><strong>{{
+              !analysis || selected > analysis.ends[sensor]
+                ? '—'
+                : (rows.find((r) => r.sensor === sensor)?.detections ?? 0)
+            }}</strong
+            ><small>{{
+              analysis && selected > analysis.ends[sensor]
+                ? 'Fuera de la descarga disponible'
+                : 'observaciones evaluadas'
+            }}</small>
+          </div>
+        </div>
+        <p class="inline-note">
+          <Info :size="15" />La fecha de la última observación no demuestra cobertura diaria sin
+          nubes. Suomi y MODIS tienen fechas de corte diferentes.
+        </p>
+        <div class="week-card">
+          <span class="eyebrow">CRITERIO COMPARTIDO</span>
+          <p>
+            La misma decisión, cobertura y confianza se aplica al mapa, al calendario y al análisis.
+          </p>
+        </div>
+      </aside>
+    </div>
+  </div>
+</template>

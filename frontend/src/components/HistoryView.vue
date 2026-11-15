@@ -1,14 +1,151 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import { Info, BarChart3 } from '@lucide/vue'
-import type { Analysis, Week } from '../huanuco'
-import { dateText, percent } from '../huanuco'
-const props=defineProps<{analysis:Analysis|null;year:number;departmentName:string;mode:'sensor'|'harmonized'}>()
-const quarter=ref('all')
-const weeks=computed(()=> (props.analysis?.weekly??[]).filter(w=>quarter.value==='all'||Math.floor(((w.start.slice(0,4)===String(props.year) ? Number(w.start.slice(5,7)) : 1)-1)/3)+1===Number(quarter.value)))
-const selected=ref<Week|null>(null)
-watch(() => props.analysis, value => { selected.value = value?.weekly.find(w => w.start === selected.value?.start) ?? null })
-const maxCells=computed(()=>Math.max(1,...weeks.value.flatMap(w=>[w.sensors.MODIS.cells??0,w.sensors.VIIRS.cells??0])))
-const totals=computed(()=>{const a=props.analysis?.daily??[];return {modis:a.filter(d=>d.sensor==='MODIS').reduce((n,d)=>n+d.detections,0),viirs:a.filter(d=>d.sensor==='VIIRS').reduce((n,d)=>n+d.detections,0)}})
+import { computed, ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { use, init, type EChartsType } from 'echarts/core'
+import { BarChart } from 'echarts/charts'
+import { GridComponent, TooltipComponent, LegendComponent } from 'echarts/components'
+import { CanvasRenderer } from 'echarts/renderers'
+import { Info, ChartNoAxesCombined } from '@lucide/vue'
+import { decisionLabels, type Decision, type ScreenedAnalysis } from '../huanuco'
+use([BarChart, GridComponent, TooltipComponent, LegendComponent, CanvasRenderer])
+const props = defineProps<{ analysis: ScreenedAnalysis | null; decision: Decision }>()
+const element = ref<HTMLDivElement>(),
+  group = ref('month')
+let chart: EChartsType | undefined, observer: ResizeObserver | undefined
+const rows = computed(() => {
+  const data = new Map<string, { label: string; MODIS: number; VIIRS: number }>()
+  for (const d of props.analysis?.daily ?? []) {
+    const key = group.value === 'month' ? d.day.slice(0, 7) : d.day
+    const row = data.get(key) ?? { label: key, MODIS: 0, VIIRS: 0 }
+    row[d.sensor] += d.detections
+    data.set(key, row)
+  }
+  return [...data.values()].sort((a, b) => a.label.localeCompare(b.label))
+})
+const totals = computed(() => ({
+  MODIS: (props.analysis?.daily ?? [])
+    .filter((d) => d.sensor === 'MODIS')
+    .reduce((n, d) => n + d.detections, 0),
+  VIIRS: (props.analysis?.daily ?? [])
+    .filter((d) => d.sensor === 'VIIRS')
+    .reduce((n, d) => n + d.detections, 0),
+}))
+function draw() {
+  chart?.setOption(
+    {
+      animation: false,
+      color: ['#ed9d3b', '#dc3545'],
+      tooltip: { trigger: 'axis', confine: true },
+      legend: { bottom: 0 },
+      grid: { top: 35, left: 55, right: 20, bottom: 75 },
+      xAxis: {
+        type: 'category',
+        data: rows.value.map((r) => r.label),
+        axisLabel: { color: '#838995', fontSize: 10 },
+        axisTick: { show: false },
+        axisLine: { lineStyle: { color: '#e5e8ed' } },
+      },
+      yAxis: {
+        type: 'value',
+        minInterval: 1,
+        splitLine: { lineStyle: { color: '#edf0f2', type: 'dashed' } },
+      },
+      series: ['MODIS', 'VIIRS'].map((sensor) => ({
+        name: sensor,
+        type: 'bar',
+        barMaxWidth: 28,
+        itemStyle: { borderRadius: [4, 4, 0, 0] },
+        data: rows.value.map((r) => r[sensor as 'MODIS' | 'VIIRS']),
+      })),
+    },
+    true,
+  )
+}
+watch([rows, () => props.analysis], async () => {
+  await nextTick()
+  draw()
+})
+onMounted(() => {
+  if (!element.value) return
+  chart = init(element.value)
+  draw()
+  observer = new ResizeObserver(() => chart?.resize())
+  observer.observe(element.value)
+})
+onUnmounted(() => {
+  observer?.disconnect()
+  chart?.dispose()
+})
 </script>
-<template><div class="secondary-view"><div class="context-banner"><span class="badge badge-yellow">EXPERIMENTAL</span><p>Comparación por sensor contra su propia línea base 2016–2024, excluyendo el año consultado si pertenece a ese periodo. No es un índice validado ni una alerta operativa.</p></div><div class="surface history-controls"><div><span class="eyebrow">ACTIVIDAD SEMANAL · {{ year }}</span><h2>{{ departmentName }} en perspectiva</h2><p>Una celda con una o más detecciones cuenta una vez por día y sensor.</p></div><label>Periodo<select v-model="quarter"><option value="all">Todo el año</option><option value="1">Enero – marzo</option><option value="2">Abril – junio</option><option value="3">Julio – septiembre</option><option value="4">Octubre – diciembre</option></select></label></div><div v-if="mode==='sensor'" class="history-stats"><article class="surface"><small>MODIS · detecciones de {{ year }}</small><strong>{{ analysis?totals.modis.toLocaleString('es-PE'):'—' }}</strong><p>Hasta {{ analysis?.ends.MODIS ?? '—' }} UTC</p></article><article class="surface"><small>VIIRS Suomi · detecciones de 2026</small><strong>{{ analysis?totals.viirs.toLocaleString('es-PE'):'—' }}</strong><p>Hasta {{ analysis?.ends.VIIRS ?? '—' }} UTC</p></article><article class="surface"><small>Cuadrícula utilizada</small><strong>{{ analysis?.grid_km ?? '—' }} <em>km</em></strong><p>Compare 2, 5 y 10 km en el filtro superior</p></article></div><section class="surface chart-card"><div class="section-title"><div><span class="eyebrow">{{ mode==='sensor'?'CELDAS-DÍA CON DETECCIÓN':'ÍNDICE EXPERIMENTAL' }}</span><h2>{{ mode==='sensor'?'Actividad observada por semana':'Armonización semanal' }}</h2><p>{{ mode==='sensor'?'Selecciona una semana para comparar los percentiles.':'Promedio de los percentiles de cada sensor; las semanas sin comparación se muestran como —.' }}</p></div><BarChart3 :size="26" class="red-icon"/></div><div v-if="analysis" class="weekly-chart" role="group" aria-label="Semanas del año seleccionado; seleccione una para ver la comparación"><button v-for="w in weeks" :key="w.start" :class="{chosen:selected?.start===w.start}" :aria-label="'Semana '+w.week+', '+dateText(w.start)+'; '+(mode==='sensor'?'MODIS '+(w.sensors.MODIS.cells ?? 'sin datos')+', VIIRS '+(w.sensors.VIIRS.cells ?? 'sin datos'):'índice '+(w.combined===null?'sin comparación':percent(w.combined)))" @click="selected=w"><span class="bars"><template v-if="mode==='harmonized'"><i v-if="w.combined!==null" class="bar harmonized" :style="{height:Math.max(2,100*w.combined)+'%'}"/><span v-else class="missing-week">—</span></template><template v-else><i v-if="w.sensors.MODIS.cells!==null" class="bar modis" :style="{height:Math.max(2,100*w.sensors.MODIS.cells/maxCells)+'%'}"/><i v-if="w.sensors.VIIRS.cells!==null" class="bar viirs" :style="{height:Math.max(2,100*w.sensors.VIIRS.cells/maxCells)+'%'}"/></template></span><small>{{ w.week }}</small></button></div><p v-else>El análisis aparecerá cuando termine la consulta.</p><div class="chart-legend"><template v-if="mode==='sensor'"><span><i class="modis"/>MODIS</span><span><i class="viirs"/>VIIRS Suomi</span></template><span v-else><i class="harmonized"/>Índice combinado · escala 0–100%</span></div><div v-if="selected" class="week-card"><h3>Semana {{ selected.week }} · {{ dateText(selected.start) }} – {{ dateText(selected.end) }}</h3><details :open="mode==='sensor'"><summary>Ver componentes por sensor</summary><div class="week-comparison"><div v-for="sensor in ['MODIS','VIIRS'] as const" :key="sensor"><strong>{{ sensor }}</strong><p>{{ selected.sensors[sensor].cells ?? 'Sin datos completos' }} celdas-día</p><p>Percentil {{ percent(selected.sensors[sensor].percentile) }} · {{ selected.sensors[sensor].sample }} semanas de referencia</p><small v-if="selected.sensors[sensor].ties !== null && selected.sensors[sensor].ties! >= .5">Muchos empates en la referencia; baja capacidad de discriminación.</small></div></div></details><p>Combinado experimental: <strong>{{ percent(selected.combined) }}</strong><span v-if="selected.disagreement !== null"> · diferencia {{ percent(selected.disagreement) }}{{ selected.disagreement > .25 ? ' · Sensores discrepan' : '' }}</span><span v-else> · No comparable</span></p></div><details class="chart-table"><summary>Ver tabla semanal accesible</summary><table><thead><tr><th>Semana</th><template v-if="mode==='sensor'"><th>MODIS celdas-día</th><th>VIIRS celdas-día</th><th>Percentil MODIS</th><th>Percentil VIIRS</th></template><th>Combinado experimental</th></tr></thead><tbody><tr v-for="w in weeks" :key="w.start"><th>{{ w.start }}</th><template v-if="mode==='sensor'"><td>{{ w.sensors.MODIS.cells ?? '—' }}</td><td>{{ w.sensors.VIIRS.cells ?? '—' }}</td><td>{{ percent(w.sensors.MODIS.percentile) }}</td><td>{{ percent(w.sensors.VIIRS.percentile) }}</td></template><td>{{ percent(w.combined) }}</td></tr></tbody></table></details></section><p class="inline-note"><Info :size="16"/>Los percentiles describen detecciones respecto a la temporada de cada sensor; no corrigen nubes ni cobertura y no representan probabilidad de incendio.</p></div></template>
+<template>
+  <div class="secondary-view">
+    <div class="context-banner">
+      <span class="badge badge-yellow">{{ decisionLabels[decision] }}</span>
+      <p>
+        Huánuco 2026 · {{ analysis?.event_count ?? 0 }} eventos probables, sustentados por
+        {{ analysis?.total_selected ?? 0 }} observaciones. Las barras cuentan observaciones por
+        sensor, no incendios distintos.
+      </p>
+    </div>
+    <div class="history-stats">
+      <article class="surface">
+        <small>MODIS · observaciones filtradas</small
+        ><strong>{{ analysis ? totals.MODIS.toLocaleString('es-PE') : '—' }}</strong>
+        <p>Última fecha del archivo: {{ analysis?.ends.MODIS ?? '—' }}</p>
+      </article>
+      <article class="surface">
+        <small>VIIRS Suomi · observaciones filtradas</small
+        ><strong>{{ analysis ? totals.VIIRS.toLocaleString('es-PE') : '—' }}</strong>
+        <p>Última fecha del archivo: {{ analysis?.ends.VIIRS ?? '—' }}</p>
+      </article>
+      <article class="surface">
+        <small>Referencia territorial</small><strong>{{ analysis?.reference.year ?? '—' }}</strong>
+        <p>MapBiomas · Cobertura anterior, no verificación del evento</p>
+      </article>
+    </div>
+    <section class="surface chart-card">
+      <div class="section-title">
+        <div>
+          <span class="eyebrow">ACTIVIDAD OBSERVADA · HUÁNUCO</span>
+          <h2>Observaciones aceptadas por el filtro</h2>
+          <p>{{ decisionLabels[decision] }} · Las fuentes se conservan separadas</p>
+        </div>
+        <label class="history-group"
+          >Agrupar<select v-model="group">
+            <option value="month">Por mes</option>
+            <option value="day">Por día</option>
+          </select></label
+        ><ChartNoAxesCombined class="red-icon" :size="22" />
+      </div>
+      <div
+        ref="element"
+        class="history-chart"
+        role="img"
+        :aria-label="`Observaciones evaluadas: ${totals.MODIS} MODIS y ${totals.VIIRS} VIIRS`"
+      />
+      <details class="chart-table">
+        <summary>Ver tabla de datos accesible</summary>
+        <table>
+          <thead>
+            <tr>
+              <th>Periodo UTC</th>
+              <th>MODIS</th>
+              <th>VIIRS</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="r in rows" :key="r.label">
+              <th>{{ r.label }}</th>
+              <td>{{ r.MODIS }}</td>
+              <td>{{ r.VIIRS }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </details>
+    </section>
+    <p class="inline-note">
+      <Info :size="16" />Esta versión une la estructura y los criterios de revisión, conservando
+      cada sensor. No convierte conteos en incendios únicos ni presenta una calibración estadística
+      validada.
+    </p>
+  </div>
+</template>
