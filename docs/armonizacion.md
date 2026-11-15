@@ -119,3 +119,12 @@ Para cada área y semana mostrar: celdas-día detectadas por sensor, percentiles
 - [NASA: características y resolución de los sensores](https://wiki.earthdata.nasa.gov/spaces/FIRMS/blog/2022/09/29/266967967/Characteristics%2Bof%2BVIIRS%2BMODIS%2Band%2BOLI%2BSensors%2Band%2BTheir%2BEffects%2Bon%2Bthe%2BSpatial%2BExtent%2Bof%2BDaily%2BActive%2BFire%2BData).
 - [NASA: por qué un incendio puede no detectarse](https://forum.earthdata.nasa.gov/viewtopic.php?t=5178).
 - [NASA: impacto de las nubes en las detecciones](https://wiki.earthdata.nasa.gov/spaces/FIRMS/blog/2024/08/07/382276882/The%2BImpact%2Bof%2BCloud%2Bon%2BActive%2BFire%2BDetections).
+
+
+## Tabla semanal generada
+
+La tabla PostgreSQL `datos_armonizados` almacena una fila por departamento, año y semana ISO para el método experimental con cuadrícula de 5 km. Conserva por separado los valores de celdas-día, los percentiles y el tamaño de muestra de MODIS y VIIRS Suomi, además de la fracción de empates, el índice combinado cuando es comparable y su estado. Incluye la zona EPSG empleada, la referencia 2016–2024, el último registro encontrado por fuente y la fecha de cálculo. Las semanas que cruzan el año se registran como incompletas.
+
+La generación utiliza las observaciones asignadas a un departamento de `modis` (Terra y Aqua) y `viirs` (solo `SNPP`). NOAA-20 y NOAA-21 permanecen en la tabla original y no participan en este método. Se incluyen todas las categorías de confianza y tipo, incluidos los tipos desconocidos; los registros sin departamento no se agregan. El dato de último registro es únicamente el extremo encontrado, no demuestra cobertura diaria. La columna `cobertura` se marca como desconocida y el índice continúa siendo experimental y no validado.
+
+El esquema se define en `backend/sql/migrations/002_crear_datos_armonizados.sql` y el cálculo en `data-pipeline/generar_datos_armonizados.py`. El generador exige una tabla armonizada vacía y no sobrescribe resultados; si cambian los datos de origen, debe planificarse explícitamente su regeneración. Las tablas originales no se modifican. Las vistas anteriores todavía deben adaptarse al nuevo esquema de datos.

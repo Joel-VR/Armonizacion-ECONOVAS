@@ -36,6 +36,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--data-dir', type=Path, default=ROOT / 'data' / 'modisViirs')
     args = parser.parse_args()
+    parser.error('La importación anterior está deshabilitada: el proyecto usa tablas originales modis y viirs sin normalizar.')
     try:
         config = database_config()
     except ValueError as exc:

@@ -5,6 +5,9 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .env
+.env.*
+!.env.example
+!.env.*.example
 data/raw/*
 !data/raw/.gitkeep
 data/processed/*
@@ -13,3 +16,14 @@ data/processed/*
 # Descargas locales de sensores (no se versionan)
 data/modisViirs/
 data/backups/
+
+# Copias de bases de datos y archivos temporales locales
+*.dump
+*.backup
+*.log
+data/*.rar
+data/*.zip
+data/*.7z
+data/.neon-temporal
+scripts/*_temporal.ps1
+scripts/*_temporal.py

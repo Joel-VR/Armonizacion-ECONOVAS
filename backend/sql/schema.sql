@@ -1,15 +1,76 @@
-CREATE EXTENSION IF NOT EXISTS postgis;
-CREATE TABLE IF NOT EXISTS fire_detections (
- id bigserial PRIMARY KEY, fingerprint text NOT NULL UNIQUE,
- latitude double precision NOT NULL CHECK(latitude BETWEEN -90 AND 90),
- longitude double precision NOT NULL CHECK(longitude BETWEEN -180 AND 180),
- geom geometry(Point,4326) GENERATED ALWAYS AS (ST_SetSRID(ST_MakePoint(longitude,latitude),4326)) STORED,
- acquired_at timestamptz NOT NULL, sensor text NOT NULL CHECK(sensor IN ('MODIS','VIIRS')),
- satellite text NOT NULL, confidence text, frp double precision, brightness double precision,
- bright_t31 double precision, scan double precision, track double precision, daynight text,
- fire_type text, version text NOT NULL, source_kind text NOT NULL CHECK(source_kind IN ('archive','nrt')),
- source_file text NOT NULL
+-- Campos originales FIRMS y departamento derivado de las coordenadas.
+-- Los archivos NRT no incluyen type; se almacena como NULL.
+CREATE TABLE IF NOT EXISTS modis (
+    latitude double precision,
+    longitude double precision,
+    acq_date text,
+    acq_time text,
+    instrument text,
+    track double precision,
+    daynight text,
+    scan double precision,
+    version text,
+    confidence text,
+    satellite text,
+    brightness double precision,
+    type text,
+    frp double precision,
+    bright_t31 double precision,
+    departamento text
 );
-CREATE INDEX IF NOT EXISTS fire_detections_time_idx ON fire_detections(acquired_at);
-CREATE INDEX IF NOT EXISTS fire_detections_geom_idx ON fire_detections USING gist(geom);
-CREATE INDEX IF NOT EXISTS fire_detections_sensor_time_idx ON fire_detections(sensor,acquired_at);
+
+CREATE TABLE IF NOT EXISTS viirs (
+    latitude double precision,
+    longitude double precision,
+    acq_date text,
+    acq_time text,
+    instrument text,
+    track double precision,
+    daynight text,
+    scan double precision,
+    version text,
+    confidence text,
+    satellite text,
+    brightness double precision,
+    type text,
+    frp double precision,
+    bright_t31 double precision,
+    departamento text
+);
+
+-- Indicadores semanales exploratorios; no sustituye las observaciones originales.
+CREATE TABLE IF NOT EXISTS public.datos_armonizados (
+    departamento text NOT NULL,
+    anio smallint NOT NULL,
+    semana_inicio date NOT NULL,
+    semana_fin date NOT NULL,
+    semana_iso smallint NOT NULL,
+    cuadricula_km smallint NOT NULL,
+    epsg integer NOT NULL,
+    modis_celdas_dia integer,
+    viirs_suomi_celdas_dia integer,
+    modis_percentil double precision,
+    viirs_suomi_percentil double precision,
+    modis_semanas_referencia smallint NOT NULL,
+    viirs_semanas_referencia smallint NOT NULL,
+    modis_anios_referencia smallint NOT NULL,
+    viirs_anios_referencia smallint NOT NULL,
+    modis_fraccion_empates double precision,
+    viirs_fraccion_empates double precision,
+    indice_combinado double precision,
+    diferencia_sensores double precision,
+    estado text NOT NULL,
+    referencia_inicio smallint NOT NULL DEFAULT 2016,
+    referencia_fin smallint NOT NULL DEFAULT 2024,
+    fuente_modis text NOT NULL DEFAULT 'Terra y Aqua',
+    fuente_viirs text NOT NULL DEFAULT 'Suomi NPP',
+    ultimo_registro_modis date NOT NULL,
+    ultimo_registro_viirs date NOT NULL,
+    cobertura text NOT NULL DEFAULT 'desconocida',
+    metodo text NOT NULL DEFAULT 'experimental_v1',
+    calculado_en timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (departamento, anio, semana_inicio, cuadricula_km, metodo),
+    CHECK (semana_fin = semana_inicio + 6),
+    CHECK (indice_combinado IS NULL OR indice_combinado BETWEEN 0 AND 1),
+    CHECK (diferencia_sensores IS NULL OR diferencia_sensores BETWEEN 0 AND 1)
+);
