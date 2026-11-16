@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { X, BookOpen, Layers, Flame, Scale, AlertTriangle, ExternalLink, Compass } from '@lucide/vue'
+import { language, tr } from '../language'
 
 defineProps<{ open: boolean }>()
 const emit = defineEmits<{ close: [] }>()
@@ -11,14 +12,76 @@ const emit = defineEmits<{ close: [] }>()
       <header class="modal-header">
         <div class="modal-title-group">
           <span class="eyebrow"><BookOpen :size="14" /> NASA SPACE APPS CHALLENGE</span>
-          <h2 id="modal-title">Metodología de Armonización MODIS & VIIRS</h2>
+          <h2 id="modal-title">{{ tr('Metodología de Armonización MODIS & VIIRS', 'MODIS & VIIRS Harmonization Methodology') }}</h2>
         </div>
-        <button class="icon-button" aria-label="Cerrar ventana" @click="emit('close')">
+        <button class="icon-button" :aria-label="tr('Cerrar ventana', 'Close window')" @click="emit('close')">
           <X :size="20" />
         </button>
       </header>
 
-      <div class="modal-content">
+      <div v-if="language === 'en'" class="modal-content">
+        <section class="doc-section">
+          <h3><Scale :size="18" /> 1. The challenge: MODIS gives way to VIIRS</h3>
+          <p>MODIS sensors aboard Terra and Aqua have provided more than two decades of continuous active hotspot monitoring. They are approaching the end of their operational lives and are being replaced by VIIRS sensors on Suomi-NPP, NOAA-20 and NOAA-21.</p>
+          <div class="comparison-grid">
+            <div class="comp-card modis-card"><h4>MODIS sensor (Terra / Aqua)</h4><ul>
+              <li><strong>Spatial resolution:</strong> 1 km at nadir (~2 × 4.8 km at scan edges).</li>
+              <li><strong>Equatorial overpass times:</strong> ~10:30 AM/PM (Terra), ~01:30 AM/PM (Aqua).</li>
+              <li><strong>Sensitivity:</strong> Typically detects fires with FRP greater than 10 MW.</li>
+              <li><strong>Status:</strong> Drifting orbit, approaching end of operations.</li>
+            </ul></div>
+            <div class="comp-card viirs-card"><h4>VIIRS sensor (Suomi-NPP / NOAA-20, 21)</h4><ul>
+              <li><strong>Spatial resolution:</strong> 375 m in I bands (thermal infrared channels).</li>
+              <li><strong>Equatorial overpass times:</strong> ~01:30 AM/PM (Suomi-NPP / NOAA).</li>
+              <li><strong>Sensitivity:</strong> Detects small agricultural burns and low-intensity fires (~3 to 5 times more detections than MODIS).</li>
+              <li><strong>Status:</strong> Currently operational and the future NASA/NOAA standard.</li>
+            </ul></div>
+          </div>
+          <p class="inline-callout"><strong>Why not compare raw counts?</strong> Plotting hotspot counts together could make fires appear to have tripled or quadrupled after VIIRS arrived in 2012. This is a <em>sensor artifact</em> caused by greater resolution and sensitivity, not necessarily a real increase in fire.</p>
+        </section>
+        <section class="doc-section">
+          <h3><Layers :size="18" /> 2. T'UKRI harmonization architecture</h3>
+          <ol class="steps-list">
+            <li><strong>Space-time grouping in metric cells (5 km cell-days):</strong> Coordinates are projected onto the region's UTM grid to decouple observation counts from pixel size. A cell with fire on a given day counts as one cell-day, whether VIIRS detected eight pixels or MODIS detected one.</li>
+            <li><strong>Empirical distribution transformation (weekly percentiles):</strong> Each week's cell-days are compared with the historical series for the same seasonal window in the 2016–2024 reference period. Each sensor receives an activity percentile between 0% and 100%:<code>P(w) = (N_less + 0.5 × N_equal) / N_total</code></li>
+            <li><strong>Unified harmonized fire index:</strong> Both sensors are combined in an index intended to avoid one biasing the other:<code>H(w) = (P_MODIS(w) + P_VIIRS(w)) / 2</code> When sensors agree, their difference is close to zero.</li>
+            <li><strong>Baseline calculation and anomaly detection:</strong> The historical median and interquartile range (P25–P75) are calculated for each month. A week or month whose index exceeds the historical median by more than +30% or +75% is classified as a critical anomaly, triggering early alerts for emergency managers.</li>
+          </ol>
+        </section>
+        <section class="doc-section">
+          <h3><AlertTriangle :size="18" /> 3. Assumptions, limitations and uncertainty</h3>
+          <ul class="limitations-list">
+            <li><strong>Not burned area or field confirmation:</strong> Thermal hotspots represent surface temperature anomalies at the satellite overpass; they do not determine a fire's final perimeter or replace field reports.</li>
+            <li><strong>Cloud cover and dense smoke:</strong> Dense clouds or smoke can attenuate or mask infrared radiation and prevent detection of active fires underneath.</li>
+            <li><strong>Discrete overpasses:</strong> Polar-orbiting satellites typically observe each location twice a day per satellite. Short fires, such as two-hour agricultural burns between passes, may be missed.</li>
+          </ul>
+        </section>
+        <section class="doc-section">
+          <h3><Compass :size="18" /> 4. Roadmap: territorial context with MapBiomas Peru</h3>
+          <p>NASA satellites detect surface heat but cannot determine land-cover type. T'UKRI envisions a two-phase strategy to support decisions:</p>
+          <div class="roadmap-grid">
+            <div class="roadmap-card phase-active"><span class="phase-tag">Phase 1 · National operation</span><h4>Sensor-to-sensor harmonization (NASA FIRMS)</h4><ul>
+              <li>Coverage of <strong>25 Peruvian departments</strong> with over 2.4 million historical and near-real-time observations.</li>
+              <li>Normalization to 5 km cell-days to address the resolution bias between VIIRS (375 m) and MODIS (1 km).</li>
+              <li>Automatic detection of statistical anomalies relative to the historical baseline (2016–2024).</li>
+            </ul></div>
+            <div class="roadmap-card phase-active"><span class="phase-tag active-tag">Phase 2 · Operational pilot in Huánuco</span><h4>MapBiomas Peru territorial context (Collection 4)</h4><ul>
+              <li><strong>🌲 Natural forest:</strong> Critical alert / risk of wildfire or active deforestation.</li>
+              <li><strong>🌾 Agricultural area:</strong> Crop residue burning and agricultural management during planting season.</li>
+              <li><strong>🏞️ Mixed mosaic:</strong> Agroforestry interface with secondary vegetation.</li>
+              <li><strong>Interactive layers and live filter:</strong> Available in Huánuco (150 m); national expansion is on the roadmap.</li>
+            </ul></div>
+          </div>
+        </section>
+        <section class="doc-section"><h3><Flame :size="18" /> 5. Data sources and references</h3><p>This application uses and references official sources:</p>
+          <div class="sources-links">
+            <a href="https://firms.modaps.eosdis.nasa.gov/" target="_blank" rel="noopener noreferrer">NASA FIRMS · Operational data <ExternalLink :size="13" /></a>
+            <a href="https://earthdata.nasa.gov/" target="_blank" rel="noopener noreferrer">NASA Earthdata · Terra, Aqua and Suomi-NPP satellites <ExternalLink :size="13" /></a>
+            <a href="https://peru.mapbiomas.org/" target="_blank" rel="noopener noreferrer">MapBiomas Peru · Land Cover and Land Use Collection 4 (Phase 2 roadmap) <ExternalLink :size="13" /></a>
+          </div>
+        </section>
+      </div>
+      <div v-else class="modal-content">
         <!-- 1. El Desafío -->
         <section class="doc-section">
           <h3><Scale :size="18" /> 1. El Desafío: El relevo de MODIS por VIIRS</h3>
@@ -134,7 +197,7 @@ const emit = defineEmits<{ close: [] }>()
       </div>
 
       <footer class="modal-footer">
-        <button class="primary-button" @click="emit('close')">Entendido</button>
+        <button class="primary-button" @click="emit('close')">{{ tr('Entendido', 'Got it') }}</button>
       </footer>
     </div>
   </div>

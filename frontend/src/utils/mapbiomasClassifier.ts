@@ -152,9 +152,16 @@ export function classifyPoint(lon: number, lat: number): LandCoverType {
   return 'other'
 }
 
-export function getLandCoverMeta(type: string | null | undefined): LandCoverMeta {
-  if (!type || !(type in LAND_COVER_CONFIG)) {
-    return LAND_COVER_CONFIG.other
+export function getLandCoverMeta(type: string | null | undefined, locale: 'en' | 'es' = 'es'): LandCoverMeta {
+  const key = type && type in LAND_COVER_CONFIG ? type as LandCoverType : 'other'
+  const meta = LAND_COVER_CONFIG[key]
+  if (locale === 'es') return meta
+  const english: Record<LandCoverType, Pick<LandCoverMeta, 'label' | 'shortLabel' | 'badge' | 'description'>> = {
+    forest: { label: 'Natural forest', shortLabel: 'Forest', badge: 'Critical alert / Forest risk', description: 'Area classified as continuous forest by MapBiomas Peru Collection 4 (2025). Requires the highest priority attention from SERFOR and park rangers.' },
+    agriculture: { label: 'Agricultural area', shortLabel: 'Crops', badge: 'Crop residue burning / Agricultural management', description: 'Crop or agricultural land according to MapBiomas Peru Collection 4 (2025). Typically associated with crop residue burning or land preparation.' },
+    mixed: { label: 'Agroforestry mosaic', shortLabel: 'Mixed mosaic', badge: 'Agroforestry transition', description: 'Mixed mosaic of secondary vegetation and plots according to MapBiomas Peru Collection 4 (2025). Agricultural-forest interface.' },
+    other: { label: 'Other land cover', shortLabel: 'Other', badge: 'Grassland / Non-woody vegetation', description: 'Grassland, shrub vegetation or other non-forest cover according to MapBiomas Peru Collection 4 (2025).' },
+    outside: { label: 'Outside Huánuco', shortLabel: 'Outside', badge: 'No land classification', description: 'Coordinates outside the Huánuco departmental raster extent.' },
   }
-  return LAND_COVER_CONFIG[type as LandCoverType]
+  return { ...meta, ...english[key] }
 }

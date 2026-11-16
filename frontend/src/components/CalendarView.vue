@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { apiUrl } from '../api'
+import { tr, language } from '../language'
 import {
   Calendar,
   Flame,
@@ -36,6 +37,7 @@ const loading = ref(true)
 const error = ref('')
 
 const selectedCell = ref<MonthCalendarCell | null>(null)
+const monthName = (month: number, short = false) => new Intl.DateTimeFormat(language.value === 'en' ? 'en-US' : 'es-PE', { month: short ? 'short' : 'long', timeZone: 'UTC' }).format(new Date(Date.UTC(2020, month - 1, 1)))
 
 const visibleYears = computed(() => {
   const yrs = calendarData.value?.years.slice().reverse() || []
@@ -50,7 +52,7 @@ async function fetchCalendar() {
   error.value = ''
   try {
     const res = await fetch(apiUrl(`/api/departments/${props.departmentCode}/calendar`))
-    if (!res.ok) throw new Error('No se pudo obtener el calendario de quemas.')
+    if (!res.ok) throw new Error(tr('No se pudo obtener el calendario de quemas.', 'Could not load the fire calendar.'))
     const data: BurnCalendarData = await res.json()
     calendarData.value = data
     // Auto-select latest active month
@@ -60,7 +62,7 @@ async function fetchCalendar() {
       selectedCell.value = activeMonth
     }
   } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Error al cargar calendario'
+    error.value = e instanceof Error ? e.message : tr('Error al cargar calendario', 'Error loading calendar')
   } finally {
     loading.value = false
   }
@@ -120,22 +122,22 @@ function downloadCalendarCSV() {
       <article class="surface kpi-card">
         <div class="kpi-icon-box text-orange"><Flame :size="22" /></div>
         <div>
-          <small>Temporada Crítica Principal</small>
-          <strong>Julio – Octubre</strong>
-          <span class="subtext">Concentra el 70%+ de quemas en el año</span>
+          <small>{{ tr('Temporada Crítica Principal', 'Main critical season') }}</small>
+          <strong>{{ tr('Julio – Octubre', 'July – October') }}</strong>
+          <span class="subtext">{{ tr('Concentra el 70%+ de quemas en el año', 'Accounts for 70%+ of annual burning') }}</span>
         </div>
       </article>
 
       <article class="surface kpi-card">
         <div class="kpi-icon-box text-red"><TrendingUp :size="22" /></div>
         <div>
-          <small>Récord Histórico Registrado</small>
+          <small>{{ tr('Récord Histórico Registrado', 'Highest recorded month') }}</small>
           <strong v-if="calendarData?.highest_month">
-            {{ calendarData.highest_month.month_name }} {{ calendarData.highest_month.year }}
+            {{ language === 'en' ? monthName(calendarData.highest_month.month) : calendarData.highest_month.month_name }} {{ calendarData.highest_month.year }}
           </strong>
           <strong v-else>—</strong>
           <span class="subtext" v-if="calendarData?.highest_month">
-            Índice {{ Math.round((calendarData.highest_month.value || 0) * 100) }}% ({{ calendarData.highest_month.anomaly_pct > 0 ? '+' : '' }}{{ calendarData.highest_month.anomaly_pct }}% vs mediana)
+            {{ tr('Índice', 'Index') }} {{ Math.round((calendarData.highest_month.value || 0) * 100) }}% ({{ calendarData.highest_month.anomaly_pct > 0 ? '+' : '' }}{{ calendarData.highest_month.anomaly_pct }}% {{ tr('vs mediana', 'vs median') }})
           </span>
         </div>
       </article>
@@ -143,18 +145,18 @@ function downloadCalendarCSV() {
       <article class="surface kpi-card">
         <div class="kpi-icon-box text-amber"><AlertTriangle :size="22" /></div>
         <div>
-          <small>Anomalías Críticas Registradas</small>
-          <strong>{{ calendarData?.critical_count ?? 0 }} meses</strong>
-          <span class="subtext">Superan en +65% la mediana histórica</span>
+          <small>{{ tr('Anomalías Críticas Registradas', 'Recorded critical anomalies') }}</small>
+          <strong>{{ calendarData?.critical_count ?? 0 }} {{ tr('meses', 'months') }}</strong>
+          <span class="subtext">{{ tr('Superan en +65% la mediana histórica', 'More than 65% above the historical median') }}</span>
         </div>
       </article>
 
       <article class="surface kpi-card action-card">
-        <button class="primary-download-btn" @click="downloadCalendarCSV" title="Descargar matriz en CSV">
+        <button class="primary-download-btn" @click="downloadCalendarCSV" :title="tr('Descargar matriz en CSV', 'Download matrix as CSV')">
           <Download :size="18" />
-          <span>Exportar Calendario (CSV)</span>
+          <span>{{ tr('Exportar Calendario (CSV)', 'Export calendar (CSV)') }}</span>
         </button>
-        <span class="subtext">Datos armonizados 2000–2026 (27 años)</span>
+        <span class="subtext">{{ tr('Datos armonizados 2000–2026 (27 años)', 'Harmonized data 2000–2026 (27 years)') }}</span>
       </article>
     </div>
 
@@ -164,45 +166,45 @@ function downloadCalendarCSV() {
       <section class="surface matrix-container">
         <div class="matrix-header">
           <div>
-            <span class="eyebrow"><Calendar :size="14" /> CALENDARIO DE ACTIVIDAD DE FUEGO</span>
-            <h2>Matriz Multianual de Quemas e Incendios (2000–2026)</h2>
+            <span class="eyebrow"><Calendar :size="14" /> {{ tr('CALENDARIO DE ACTIVIDAD DE FUEGO', 'FIRE ACTIVITY CALENDAR') }}</span>
+            <h2>{{ tr('Matriz Multianual de Quemas e Incendios (2000–2026)', 'Multiyear fire and burning matrix (2000–2026)') }}</h2>
             <p>
-              Índice Armonizado continuo: Integra más de dos décadas de observaciones satelitales NASA (MODIS 2000+ y VIIRS 2012+).
+              {{ tr('Índice Armonizado continuo: Integra más de dos décadas de observaciones satelitales NASA (MODIS 2000+ y VIIRS 2012+).', 'Continuous harmonized index: Combines more than two decades of NASA satellite observations (MODIS since 2000 and VIIRS since 2012).') }}
             </p>
           </div>
 
           <!-- Tab Selector -->
           <div class="view-mode">
             <button :class="{ active: activeTab === 'matrix' }" @click="activeTab = 'matrix'">
-              Matriz 2000–2026
+              {{ tr('Matriz 2000–2026', '2000–2026 matrix') }}
             </button>
             <button :class="{ active: activeTab === 'weekly' }" @click="activeTab = 'weekly'">
-              Desglose Semanal
+              {{ tr('Desglose Semanal', 'Weekly breakdown') }}
             </button>
           </div>
         </div>
 
         <!-- Era Filter Pills -->
         <div v-if="activeTab === 'matrix'" class="era-filter-bar">
-          <span class="filter-label">Época Satelital:</span>
+          <span class="filter-label">{{ tr('Época Satelital:', 'Satellite era:') }}</span>
           <div class="era-pills">
             <button :class="{ active: eraFilter === 'all' }" @click="eraFilter = 'all'">
-              Todo el Registro (2000–2026 · 27 años)
+              {{ tr('Todo el Registro (2000–2026 · 27 años)', 'Full record (2000–2026 · 27 years)') }}
             </button>
             <button :class="{ active: eraFilter === '2020s' }" @click="eraFilter = '2020s'">
-              2020s (Actual)
+              {{ tr('2020s (Actual)', '2020s (current)') }}
             </button>
             <button :class="{ active: eraFilter === '2010s' }" @click="eraFilter = '2010s'">
               2010s (Dual MODIS+VIIRS)
             </button>
             <button :class="{ active: eraFilter === '2000s' }" @click="eraFilter = '2000s'">
-              2000s (MODIS Inicial)
+              {{ tr('2000s (MODIS Inicial)', '2000s (early MODIS)') }}
             </button>
           </div>
         </div>
 
         <div v-if="loading" class="loading-state">
-          <p>Consultando registros armonizados del departamento…</p>
+          <p>{{ tr('Consultando registros armonizados del departamento…', 'Loading harmonized records for the department…') }}</p>
         </div>
 
         <div v-else-if="error" class="error-state" role="alert">
@@ -215,11 +217,11 @@ function downloadCalendarCSV() {
           <table class="heatmap-table">
             <thead>
               <tr>
-                <th class="sticky-col">Año · Sensor</th>
+                <th class="sticky-col">{{ tr('Año · Sensor', 'Year · Sensor') }}</th>
                 <th v-for="m in calendarData?.months" :key="m.month" :class="{ 'peak-header': m.month >= 7 && m.month <= 10 }">
-                  {{ m.short }}
+                  {{ language === 'en' ? monthName(m.month, true) : m.short }}
                 </th>
-                <th>Total Anual</th>
+                <th>{{ tr('Total Anual', 'Annual total') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -230,9 +232,9 @@ function downloadCalendarCSV() {
               >
                 <th class="sticky-col year-label">
                   <span>{{ yr }}</span>
-                  <small v-if="yr < 2012" class="era-tag era-modis" title="Solo observaciones MODIS (Terra/Aqua)">MODIS</small>
-                  <small v-else-if="yr <= 2024" class="era-tag era-dual" title="Observaciones duales MODIS + VIIRS (Periodo de referencia)">Dual</small>
-                  <small v-else class="era-tag era-viirs" title="VIIRS como sensor primario">VIIRS</small>
+                  <small v-if="yr < 2012" class="era-tag era-modis" :title="tr('Solo observaciones MODIS (Terra/Aqua)', 'MODIS observations only (Terra/Aqua)')">MODIS</small>
+                  <small v-else-if="yr <= 2024" class="era-tag era-dual" :title="tr('Observaciones duales MODIS + VIIRS (Periodo de referencia)', 'MODIS + VIIRS observations (reference period)')">Dual</small>
+                  <small v-else class="era-tag era-viirs" :title="tr('VIIRS como sensor primario', 'VIIRS as primary sensor')">VIIRS</small>
                 </th>
                 <td
                   v-for="cell in calendarData?.matrix[String(yr)]"
@@ -244,11 +246,11 @@ function downloadCalendarCSV() {
                   }"
                   :style="{ backgroundColor: getCellBg(cell), color: getCellTextColor(cell) }"
                   @click="selectCell(cell)"
-                  :title="`${cell.month_name} ${cell.year}: Índice ${percent(cell.harmonized_index)} | Mediana: ${percent(cell.historical_median)} | Anomalía: ${cell.anomaly_pct ? (cell.anomaly_pct > 0 ? '+' : '') + cell.anomaly_pct + '%' : '—'}`"
+                  :title="`${language === 'en' ? monthName(cell.month) : cell.month_name} ${cell.year}: ${tr('Índice', 'Index')} ${percent(cell.harmonized_index)} | ${tr('Mediana', 'Median')}: ${percent(cell.historical_median)} | ${tr('Anomalía', 'Anomaly')}: ${cell.anomaly_pct ? (cell.anomaly_pct > 0 ? '+' : '') + cell.anomaly_pct + '%' : '—'}`"
                 >
                   <span class="cell-val">{{ percent(cell.harmonized_index) }}</span>
-                  <span v-if="cell.anomaly_status === 'critical'" class="anomaly-dot" title="Anomalía crítica"></span>
-                  <span v-else-if="cell.is_unusual_timing" class="unusual-dot" title="Actividad inusualmente temprana/tardía"></span>
+                  <span v-if="cell.anomaly_status === 'critical'" class="anomaly-dot" :title="tr('Anomalía crítica', 'Critical anomaly')"></span>
+                  <span v-else-if="cell.is_unusual_timing" class="unusual-dot" :title="tr('Actividad inusualmente temprana/tardía', 'Unusually early/late activity')"></span>
                 </td>
                 <td class="year-summary-cell">
                   <strong>
@@ -267,7 +269,7 @@ function downloadCalendarCSV() {
             <tfoot>
               <tr class="baseline-row">
                 <th class="sticky-col">
-                  <span>Mediana Histórica</span>
+                  <span>{{ tr('Mediana Histórica', 'Historical median') }}</span>
                   <small>(2016–2024)</small>
                 </th>
                 <td v-for="m in calendarData?.months" :key="'med-' + m.month" class="baseline-val-cell">
@@ -277,8 +279,8 @@ function downloadCalendarCSV() {
               </tr>
               <tr class="baseline-row threshold-row">
                 <th class="sticky-col">
-                  <span>Umbral Crítico (P75)</span>
-                  <small>Alerta 25% superior</small>
+                  <span>{{ tr('Umbral Crítico (P75)', 'Critical threshold (P75)') }}</span>
+                  <small>{{ tr('Alerta 25% superior', 'Upper 25% alert') }}</small>
                 </th>
                 <td v-for="m in calendarData?.months" :key="'p75-' + m.month" class="threshold-val-cell">
                   {{ percent(m.baseline.p75) }}
@@ -290,17 +292,17 @@ function downloadCalendarCSV() {
 
           <!-- Heatmap Legend -->
           <div class="heatmap-legend">
-            <span class="legend-title">Escala de Actividad:</span>
+            <span class="legend-title">{{ tr('Escala de Actividad:', 'Activity scale:') }}</span>
             <div class="legend-scale">
-              <span class="legend-item"><i style="background: #4c9f69"></i> &lt;20% Baja</span>
-              <span class="legend-item"><i style="background: #84cc16"></i> 20–40% Moderada</span>
-              <span class="legend-item"><i style="background: #eab308"></i> 40–60% Típica Seca</span>
-              <span class="legend-item"><i style="background: #f97316"></i> 60–80% Elevada</span>
-              <span class="legend-item"><i style="background: #dc2626"></i> ≥80% Crítica / Extrema</span>
+              <span class="legend-item"><i style="background: #4c9f69"></i> &lt;20% {{ tr('Baja', 'Low') }}</span>
+              <span class="legend-item"><i style="background: #84cc16"></i> 20–40% {{ tr('Moderada', 'Moderate') }}</span>
+              <span class="legend-item"><i style="background: #eab308"></i> 40–60% {{ tr('Típica Seca', 'Typical dry season') }}</span>
+              <span class="legend-item"><i style="background: #f97316"></i> 60–80% {{ tr('Elevada', 'High') }}</span>
+              <span class="legend-item"><i style="background: #dc2626"></i> ≥80% {{ tr('Crítica / Extrema', 'Critical / Extreme') }}</span>
             </div>
             <div class="legend-indicators">
-              <span><i class="dot-red"></i> Anomalía Crítica (+65% vs mediana)</span>
-              <span><i class="dot-amber"></i> Fuera de Temporada Habitual</span>
+              <span><i class="dot-red"></i> {{ tr('Anomalía Crítica (+65% vs mediana)', 'Critical anomaly (+65% vs median)') }}</span>
+              <span><i class="dot-amber"></i> {{ tr('Fuera de Temporada Habitual', 'Outside usual season') }}</span>
             </div>
           </div>
         </div>
@@ -309,43 +311,43 @@ function downloadCalendarCSV() {
         <div v-else-if="activeTab === 'weekly'" class="weekly-breakdown-wrap">
           <div class="weekly-controls">
             <label>
-              Año:
+              {{ tr('Año:', 'Year:') }}
               <select :value="selectedYear" @change="emit('update:year', Number(($event.target as HTMLSelectElement).value))">
                 <option v-for="y in calendarData?.years.slice().reverse()" :key="y" :value="y">{{ y }}</option>
               </select>
             </label>
-            <span class="inline-note">Mostrando semanas ISO del año {{ selectedYear }} en {{ calendarData?.department.name }}.</span>
+            <span class="inline-note">{{ tr('Mostrando semanas ISO del año', 'Showing ISO weeks for') }} {{ selectedYear }} {{ tr('en', 'in') }} {{ calendarData?.department.name }}.</span>
           </div>
 
           <!-- Banner explicativo para la Era Pre-VIIRS -->
           <div v-if="selectedYear < 2012" class="pre-viirs-banner">
             <Info :size="16" class="pre-viirs-icon" />
             <div>
-              <strong>Era Pre-VIIRS ({{ selectedYear }}):</strong>
-              El sensor VIIRS (375 m) inició transmisiones en 2012. Para los años 2000–2011, el monitoreo satelital operaba exclusivamente con el sensor <strong>MODIS (Terra y Aqua a 1 km)</strong>.
+              <strong>{{ tr('Era Pre-VIIRS', 'Pre-VIIRS era') }} ({{ selectedYear }}):</strong>
+              {{ tr('El sensor VIIRS (375 m) inició transmisiones en 2012. Para los años 2000–2011, el monitoreo satelital operaba exclusivamente con el sensor MODIS (Terra y Aqua a 1 km).', 'The VIIRS sensor (375 m) began transmitting in 2012. From 2000 to 2011, satellite monitoring used MODIS (Terra and Aqua at 1 km) exclusively.') }}
             </div>
           </div>
 
           <div v-if="!analysis?.weekly.length" class="empty-state">
-            <p>No se encontraron datos semanales disponibles para {{ selectedYear }}.</p>
+            <p>{{ tr('No se encontraron datos semanales disponibles para', 'No weekly data was found for') }} {{ selectedYear }}.</p>
           </div>
 
           <table v-else class="weekly-table">
             <thead>
               <tr>
-                <th>Semana</th>
-                <th>Periodo (UTC)</th>
-                <th>Celdas MODIS</th>
-                <th>Celdas VIIRS</th>
-                <th>Índice Combinado</th>
-                <th>Diferencia Sensores</th>
-                <th>Diagnóstico</th>
+                <th>{{ tr('Semana', 'Week') }}</th>
+                <th>{{ tr('Periodo (UTC)', 'Period (UTC)') }}</th>
+                <th>{{ tr('Celdas MODIS', 'MODIS cells') }}</th>
+                <th>{{ tr('Celdas VIIRS', 'VIIRS cells') }}</th>
+                <th>{{ tr('Índice Combinado', 'Combined index') }}</th>
+                <th>{{ tr('Diferencia Sensores', 'Sensor difference') }}</th>
+                <th>{{ tr('Diagnóstico', 'Assessment') }}</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="w in analysis.weekly" :key="w.start" :class="{ 'peak-week': (w.combined || 0) >= 0.7 }">
-                <td>Semana {{ w.week }}</td>
-                <td>{{ w.start }} a {{ w.end }}</td>
+                <td>{{ tr('Semana', 'Week') }} {{ w.week }}</td>
+                <td>{{ w.start }} – {{ w.end }}</td>
                 <td>{{ w.sensors.MODIS.cells ?? '—' }}</td>
                 <td>{{ w.sensors.VIIRS.cells ?? '—' }}</td>
                 <td>
@@ -355,24 +357,24 @@ function downloadCalendarCSV() {
                 </td>
                 <td>{{ percent(w.disagreement) }}</td>
                 <td>
-                  <span v-if="(w.combined || 0) >= 0.75" class="badge badge-red">Crítico</span>
-                  <span v-else-if="(w.combined || 0) >= 0.45" class="badge badge-amber">Elevado</span>
+                  <span v-if="(w.combined || 0) >= 0.75" class="badge badge-red">{{ tr('Crítico', 'Critical') }}</span>
+                  <span v-else-if="(w.combined || 0) >= 0.45" class="badge badge-amber">{{ tr('Elevado', 'Elevated') }}</span>
                   <span v-else-if="w.combined !== null" class="badge badge-green">Normal</span>
                   <span
                     v-else-if="w.sensors.MODIS.cells !== null && w.sensors.VIIRS.cells !== null"
                     class="badge badge-blue"
-                    title="Actividad basal típica de temporada de lluvias con empates en cero en la serie histórica (metodología NASA)"
+                    :title="tr('Actividad basal típica de temporada de lluvias con empates en cero en la serie histórica (metodología NASA)', 'Typical rainy-season baseline activity with zero ties in the historical series (NASA methodology)')"
                   >
-                    Actividad basal
+                    {{ tr('Actividad basal', 'Baseline activity') }}
                   </span>
                   <span
                     v-else-if="w.sensors.MODIS.cells !== null && w.sensors.VIIRS.cells === null"
                     class="badge badge-purple"
-                    :title="w.sensors.MODIS.cells > 0 ? `MODIS registró ${w.sensors.MODIS.cells} celdas activas (VIIRS aún no operaba en ${selectedYear})` : `Actividad basal en MODIS (VIIRS aún no operaba en ${selectedYear})`"
+                    :title="w.sensors.MODIS.cells > 0 ? `${tr('MODIS registró', 'MODIS recorded')} ${w.sensors.MODIS.cells} ${tr('celdas activas', 'active cells')} (${tr('VIIRS aún no operaba en', 'VIIRS was not operating in')} ${selectedYear})` : `${tr('Actividad basal en MODIS', 'MODIS baseline activity')} (${tr('VIIRS aún no operaba en', 'VIIRS was not operating in')} ${selectedYear})`"
                   >
-                    {{ w.sensors.MODIS.cells > 0 ? 'Solo MODIS (' + w.sensors.MODIS.cells + ')' : 'Basal (MODIS)' }}
+                    {{ w.sensors.MODIS.cells > 0 ? tr('Solo MODIS', 'MODIS only') + ' (' + w.sensors.MODIS.cells + ')' : tr('Basal (MODIS)', 'Baseline (MODIS)') }}
                   </span>
-                  <span v-else class="badge badge-gray">Sin datos</span>
+                  <span v-else class="badge badge-gray">{{ tr('Sin datos', 'No data') }}</span>
                 </td>
               </tr>
             </tbody>
@@ -383,15 +385,15 @@ function downloadCalendarCSV() {
       <!-- Right: Detailed Period Inspector -->
       <aside class="surface detail-drawer" v-if="selectedCell">
         <div class="drawer-header">
-          <span class="eyebrow"><Layers :size="14" /> DIAGNÓSTICO DEL PERIODO</span>
-          <h3>{{ selectedCell.month_name }} {{ selectedCell.year }}</h3>
-          <p class="dep-tag">{{ calendarData?.department.name }} · {{ selectedCell.is_baseline_year ? 'Año de Referencia' : 'Año Evaluado' }}</p>
+          <span class="eyebrow"><Layers :size="14" /> {{ tr('DIAGNÓSTICO DEL PERIODO', 'PERIOD ASSESSMENT') }}</span>
+          <h3>{{ language === 'en' ? monthName(selectedCell.month) : selectedCell.month_name }} {{ selectedCell.year }}</h3>
+          <p class="dep-tag">{{ calendarData?.department.name }} · {{ selectedCell.is_baseline_year ? tr('Año de Referencia', 'Reference year') : tr('Año Evaluado', 'Evaluation year') }}</p>
         </div>
 
         <div class="drawer-metrics">
           <!-- Main Index Card -->
           <div class="metric-highlight" :style="{ borderColor: getCellBg(selectedCell) }">
-            <span class="metric-label">Índice de Fuego Armonizado</span>
+            <span class="metric-label">{{ tr('Índice de Fuego Armonizado', 'Harmonized fire index') }}</span>
             <div class="metric-value-row">
               <span class="huge-metric" :style="{ color: getCellBg(selectedCell) }">
                 {{ percent(selectedCell.harmonized_index) }}
@@ -406,30 +408,30 @@ function downloadCalendarCSV() {
                 }"
               >
                 {{
-                  selectedCell.anomaly_status === 'critical' ? 'Crítico / Extremo' :
-                  selectedCell.anomaly_status === 'elevated' ? 'Sobre lo Habitual' :
-                  selectedCell.anomaly_status === 'unusually_low' ? 'Bajo lo Habitual' : 'Dentro del Rango Normal'
+                  selectedCell.anomaly_status === 'critical' ? tr('Crítico / Extremo', 'Critical / Extreme') :
+                  selectedCell.anomaly_status === 'elevated' ? tr('Sobre lo Habitual', 'Above normal') :
+                  selectedCell.anomaly_status === 'unusually_low' ? tr('Bajo lo Habitual', 'Below normal') : tr('Dentro del Rango Normal', 'Within normal range')
                 }}
               </span>
             </div>
             <p class="metric-subtext">
-              Promedio ponderado de las cuadrículas de 5 km en semanas de este mes.
+              {{ tr('Promedio ponderado de las cuadrículas de 5 km en semanas de este mes.', 'Weighted average of 5 km grid cells across weeks in this month.') }}
             </p>
           </div>
 
           <!-- Comparison to Historical Baseline -->
           <div class="stats-box">
-            <h4>Comparación vs Mediana Histórica</h4>
+            <h4>{{ tr('Comparación vs Mediana Histórica', 'Comparison with historical median') }}</h4>
             <div class="comparison-row">
-              <span>Mediana 2016–2024:</span>
+              <span>{{ tr('Mediana', 'Median') }} 2016–2024:</span>
               <strong>{{ percent(selectedCell.historical_median) }}</strong>
             </div>
             <div class="comparison-row">
-              <span>Rango Normal (P25 - P75):</span>
+              <span>{{ tr('Rango Normal', 'Normal range') }} (P25 - P75):</span>
               <span>{{ percent(selectedCell.baseline_p25 ?? null) }} – {{ percent(selectedCell.baseline_p75 ?? null) }}</span>
             </div>
             <div class="comparison-row highlight-row">
-              <span>Desviación / Anomalía:</span>
+              <span>{{ tr('Desviación / Anomalía:', 'Deviation / Anomaly:') }}</span>
               <strong :style="{ color: (selectedCell.anomaly_pct || 0) > 30 ? '#dc2626' : '#0284c7' }">
                 {{ selectedCell.anomaly_pct !== null ? (selectedCell.anomaly_pct > 0 ? '+' : '') + selectedCell.anomaly_pct + '%' : '—' }}
               </strong>
@@ -438,23 +440,23 @@ function downloadCalendarCSV() {
 
           <!-- Raw Sensor Footprint Breakdown -->
           <div class="stats-box">
-            <h4>Celdas-Día Detectadas por Sensor</h4>
+            <h4>{{ tr('Celdas-Día Detectadas por Sensor', 'Detected cell-days by sensor') }}</h4>
             <div class="sensor-row">
               <span class="sensor-badge modis-badge">MODIS (1 km)</span>
-              <strong>{{ selectedCell.modis_cells.toLocaleString('es-PE') }} celdas</strong>
+              <strong>{{ selectedCell.modis_cells.toLocaleString(language === 'en' ? 'en-US' : 'es-PE') }} {{ tr('celdas', 'cells') }}</strong>
             </div>
             <div class="sensor-row">
               <span class="sensor-badge viirs-badge">VIIRS Suomi (375 m)</span>
-              <strong v-if="selectedCell.year < 2012" class="text-muted" title="Sensor no lanzado en este año (inició transmisiones en 2012)">
-                No disponible (inició 2012)
+              <strong v-if="selectedCell.year < 2012" class="text-muted" :title="tr('Sensor no lanzado en este año (inició transmisiones en 2012)', 'Sensor not yet launched in this year (started transmitting in 2012)')">
+                {{ tr('No disponible (inició 2012)', 'Unavailable (started in 2012)') }}
               </strong>
-              <strong v-else>{{ selectedCell.viirs_cells.toLocaleString('es-PE') }} celdas</strong>
+              <strong v-else>{{ selectedCell.viirs_cells.toLocaleString(language === 'en' ? 'en-US' : 'es-PE') }} {{ tr('celdas', 'cells') }}</strong>
             </div>
             <p class="sensor-disclaimer" v-if="selectedCell.year < 2012">
-              <Info :size="13" /> Entre 2000 y 2011 (era Pre-VIIRS), la detección operaba exclusivamente con el sensor MODIS. VIIRS inició sus transmisiones en 2012.
+              <Info :size="13" /> {{ tr('Entre 2000 y 2011 (era Pre-VIIRS), la detección operaba exclusivamente con el sensor MODIS. VIIRS inició sus transmisiones en 2012.', 'From 2000 to 2011 (the pre-VIIRS era), detection used MODIS exclusively. VIIRS began transmitting in 2012.') }}
             </p>
             <p class="sensor-disclaimer" v-else>
-              <Info :size="13" /> VIIRS detecta fuegos de menor escala y quemas frías debido a su mayor resolución espacial (375 m vs 1 km). La armonización nivela este sesgo.
+              <Info :size="13" /> {{ tr('VIIRS detecta fuegos de menor escala y quemas frías debido a su mayor resolución espacial (375 m vs 1 km). La armonización nivela este sesgo.', 'VIIRS detects smaller fires and cooler burns due to its higher spatial resolution (375 m vs 1 km). Harmonization accounts for this bias.') }}
             </p>
           </div>
 
@@ -462,8 +464,8 @@ function downloadCalendarCSV() {
           <div v-if="selectedCell.is_unusual_timing" class="alert-box">
             <AlertTriangle :size="18" />
             <div>
-              <strong>Alerta de Quema Fuera de Temporada</strong>
-              <p>Este mes se encuentra fuera del periodo seco regular (Julio–Octubre) pero presentó una actividad superior al umbral de base.</p>
+              <strong>{{ tr('Alerta de Quema Fuera de Temporada', 'Out-of-season burning alert') }}</strong>
+              <p>{{ tr('Este mes se encuentra fuera del periodo seco regular (Julio–Octubre) pero presentó una actividad superior al umbral de base.', 'This month is outside the regular dry season (July–October), but activity exceeded the baseline threshold.') }}</p>
             </div>
           </div>
         </div>
@@ -471,7 +473,7 @@ function downloadCalendarCSV() {
         <!-- Action Button -->
         <div class="drawer-actions">
           <button class="primary-action-btn" @click="goToMap">
-            <span>Ver Focos en el Mapa</span>
+            <span>{{ tr('Ver Focos en el Mapa', 'View hotspots on map') }}</span>
             <ArrowRight :size="18" />
           </button>
         </div>

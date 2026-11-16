@@ -1,6 +1,28 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { apiUrl } from '../api'
+import { tr, language } from '../language'
+
+function getLandCoverMeta(type: string | null | undefined, locale = language.value) {
+  return getLandCoverMetaForLanguage(type, locale)
+}
+
+function updateMapControlLabels() {
+  const labels: [string, string][] = [
+    ['.maplibregl-canvas', tr('Mapa', 'Map')],
+    ['.maplibregl-ctrl-zoom-in', tr('Acercar', 'Zoom in')],
+    ['.maplibregl-ctrl-zoom-out', tr('Alejar', 'Zoom out')],
+    ['.maplibregl-ctrl-compass', tr('Arrastra para girar el mapa; haz clic para volver al norte', 'Drag to rotate map, click to reset north')],
+    ['.maplibregl-ctrl-attrib-button', tr('Mostrar u ocultar atribuciones', 'Toggle attribution')],
+  ]
+  for (const [selector, label] of labels) {
+    const control = element.value?.querySelector<HTMLElement>(selector)
+    if (!control) continue
+    control.setAttribute('aria-label', label)
+    if (selector !== '.maplibregl-canvas') control.setAttribute('title', label)
+  }
+}
+watch(language, updateMapControlLabels)
 import * as maplibregl from 'maplibre-gl'
 import type { GeoJSONSource } from 'maplibre-gl'
 import mapWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
@@ -10,7 +32,7 @@ import { percent, type Analysis } from '../huanuco'
 import {
   loadMapBiomasMask,
   classifyPoint,
-  getLandCoverMeta,
+  getLandCoverMeta as getLandCoverMetaForLanguage,
   type LandCoverType,
 } from '../utils/mapbiomasClassifier'
 
@@ -269,7 +291,7 @@ watch(
       const response = await fetch(apiUrl(endpoint), { signal: active.signal })
       if (!response.ok) {
         const body = await response.json().catch(() => ({}))
-        throw new Error(body.detail || 'No se pudieron consultar las observaciones.')
+        throw new Error(language.value === 'en' ? 'Could not load observations.' : body.detail || 'No se pudieron consultar las observaciones.')
       }
       const result = await response.json()
       if (active.signal.aborted) return
@@ -289,7 +311,7 @@ watch(
       truncated.value = result.truncated ?? false
       draw()
     } catch (e) {
-      if (!active.signal.aborted) error.value = e instanceof Error ? e.message : 'Error de conexión.'
+      if (!active.signal.aborted) error.value = e instanceof Error ? e.message : tr('Error de conexión.', 'Connection error.')
     } finally {
       if (!active.signal.aborted) busy.value = false
     }
@@ -476,7 +498,7 @@ onMounted(async () => {
       fetch('/geo/huanuco/distritos.geojson').catch(() => null),
     ])
 
-    if (!depResp.ok) throw new Error('No se pudo cargar el límite departamental.')
+    if (!depResp.ok) throw new Error(tr('No se pudo cargar el límite departamental.', 'Could not load the department boundary.'))
     allDepartmentsGeo = await depResp.json()
 
     if (labelsResp && labelsResp.ok) {
@@ -567,6 +589,7 @@ onMounted(async () => {
     })
 
     map.addControl(new maplibregl.NavigationControl(), 'top-right')
+    updateMapControlLabels()
     map.on('load', () => {
       registerMapBiomasLayers()
       registerDistrictLayers()
@@ -583,7 +606,7 @@ onMounted(async () => {
       selected.value = displayedObservations.value[idx] ?? null
     })
   } catch (e) {
-    error.value = e instanceof Error ? e.message : 'No se pudo iniciar el mapa.'
+    error.value = e instanceof Error ? e.message : tr('No se pudo iniciar el mapa.', 'Could not initialize the map.')
   }
 })
 
@@ -629,8 +652,8 @@ function downloadFilteredCSV() {
     d.fire_type ?? '',
     ...(isHuanuco
       ? [
-          d.land_cover ? getLandCoverMeta(d.land_cover).label : 'Otras coberturas',
-          d.land_cover ? getLandCoverMeta(d.land_cover).badge : 'Sin clasificar',
+          d.land_cover ? getLandCoverMeta(d.land_cover, 'es').label : 'Otras coberturas',
+          d.land_cover ? getLandCoverMeta(d.land_cover, 'es').badge : 'Sin clasificar',
           getExactDistrictName(d.longitude, d.latitude) ?? 'No determinado',
         ]
       : []),
@@ -667,8 +690,8 @@ function downloadGeoJSON() {
         ...(isHuanuco
           ? {
               land_cover_code: d.land_cover,
-              land_cover_label: d.land_cover ? getLandCoverMeta(d.land_cover).label : undefined,
-              territorial_alert: d.land_cover ? getLandCoverMeta(d.land_cover).badge : undefined,
+              land_cover_label: d.land_cover ? getLandCoverMeta(d.land_cover, 'es').label : undefined,
+              territorial_alert: d.land_cover ? getLandCoverMeta(d.land_cover, 'es').badge : undefined,
               district: getExactDistrictName(d.longitude, d.latitude),
             }
           : {}),
@@ -691,11 +714,11 @@ function downloadGeoJSON() {
 <template>
   <div class="map-panel">
     <div class="map-workspace with-detail right-filter-layout">
-      <section class="map-stage thematic-stage" :aria-label="`Mapa de detecciones de ${departmentName}`">
-        <div ref="element" class="map-canvas" aria-label="Mapa de detecciones satelitales" />
+      <section class="map-stage thematic-stage" :aria-label="`${tr('Mapa de detecciones de', 'Detection map of')} ${departmentName}`">
+        <div ref="element" class="map-canvas" :aria-label="tr('Mapa de detecciones satelitales', 'Satellite detection map')" />
         
         <!-- Reset View Button -->
-        <button class="reset-map icon-button" aria-label="Restablecer vista" @click="fitRegion()">
+        <button class="reset-map icon-button" :aria-label="tr('Restablecer vista', 'Reset view')" @click="fitRegion()">
           <RotateCcw :size="16" />
         </button>
 
@@ -704,25 +727,25 @@ function downloadGeoJSON() {
           <div class="mb-card-header">
             <span class="mb-icon">🌿</span>
             <div class="mb-title-col">
-              <strong>Capas MapBiomas 2025</strong>
-              <small>Colección 4 · Huánuco (150 m)</small>
+              <strong>{{ tr('Capas MapBiomas 2025', 'MapBiomas 2025 layers') }}</strong>
+              <small>{{ tr('Colección', 'Collection') }} 4 · Huánuco (150 m)</small>
             </div>
           </div>
           <div class="mb-card-toggles">
             <label class="mb-toggle-item" :class="{ active: showForestLayer }">
               <input type="checkbox" v-model="showForestLayer" />
               <span class="mb-color-dot" style="background: #298743;" />
-              <span class="mb-item-label">🌲 Bosque natural</span>
+              <span class="mb-item-label">🌲 {{ tr('Bosque natural', 'Natural forest') }}</span>
             </label>
             <label class="mb-toggle-item" :class="{ active: showAgriLayer }">
               <input type="checkbox" v-model="showAgriLayer" />
               <span class="mb-color-dot" style="background: #f2cf45;" />
-              <span class="mb-item-label">🌾 Agropecuario</span>
+              <span class="mb-item-label">🌾 {{ tr('Agropecuario', 'Agriculture') }}</span>
             </label>
             <label class="mb-toggle-item" :class="{ active: showMixedLayer }">
               <input type="checkbox" v-model="showMixedLayer" />
               <span class="mb-color-dot" style="background: #e7d9b1;" />
-              <span class="mb-item-label">🏞️ Mosaico mixto</span>
+              <span class="mb-item-label">🏞️ {{ tr('Mosaico mixto', 'Mixed mosaic') }}</span>
             </label>
           </div>
         </div>
@@ -732,46 +755,46 @@ function downloadGeoJSON() {
           <span style="background: #ef453e" />
           <div class="count-inner">
             <small>
-              Detecciones en {{ departmentName }}
+              {{ tr('Detecciones en', 'Detections in') }} {{ departmentName }}
               <template v-if="departmentCode === 'PE-HUC' && landCoverFilter !== 'all'">
                 · {{ getLandCoverMeta(landCoverFilter).label }}
               </template>
             </small>
             <div class="count-row">
-              <strong>{{ busy ? '…' : error ? '—' : displayedObservations.length.toLocaleString('es-PE') }}</strong>
+              <strong>{{ busy ? '…' : error ? '—' : displayedObservations.length.toLocaleString(language === 'en' ? 'en-US' : 'es-PE') }}</strong>
               <div class="quick-export-actions" v-if="displayedObservations.length > 0">
-                <button class="mini-btn" @click="downloadFilteredCSV" title="Descargar como CSV">
+                <button class="mini-btn" @click="downloadFilteredCSV" :title="tr('Descargar como CSV', 'Download as CSV')">
                   <Download :size="14" /> CSV
                 </button>
-                <button class="mini-btn" @click="downloadGeoJSON" title="Descargar como GeoJSON">
+                <button class="mini-btn" @click="downloadGeoJSON" :title="tr('Descargar como GeoJSON', 'Download as GeoJSON')">
                   <FileJson :size="14" /> GeoJSON
                 </button>
               </div>
             </div>
             <small v-if="departmentCode === 'PE-HUC' && landCoverFilter !== 'all'" class="filter-subtext">
-              Mostrando {{ displayedObservations.length }} de {{ total.toLocaleString('es-PE') }} detecciones
+              {{ tr('Mostrando', 'Showing') }} {{ displayedObservations.length }} {{ tr('de', 'of') }} {{ total.toLocaleString(language === 'en' ? 'en-US' : 'es-PE') }} {{ tr('detecciones', 'detections') }}
             </small>
-            <small v-else-if="truncated">Se muestran las 20.000 más recientes.</small>
+            <small v-else-if="truncated">{{ tr('Se muestran las 20.000 más recientes.', 'Showing the 20,000 most recent.') }}</small>
           </div>
         </div>
 
         <div v-else class="map-count-card">
           <span :style="{ background: indicatorColor }" />
           <div>
-            <small>Índice semanal de {{ departmentName }}</small>
+            <small>{{ tr('Índice semanal de', 'Weekly index for') }} {{ departmentName }}</small>
             <strong>{{ percent(selectedWeek?.combined ?? null) }}</strong>
           </div>
-          <small>{{ selectedWeek ? selectedWeek.start + ' a ' + selectedWeek.end : 'Semana no disponible' }}</small>
+          <small>{{ selectedWeek ? selectedWeek.start + ' – ' + selectedWeek.end : tr('Semana no disponible', 'Week unavailable') }}</small>
         </div>
 
         <div v-if="mode === 'observations'" class="thematic-bottom">
           <span>🟡 MODIS (1 km) &nbsp; 🔴 VIIRS Suomi (375 m)</span>
-          <span v-if="departmentCode === 'PE-HUC'">Límites distritales y lugares &nbsp;·&nbsp; MapBiomas 2025</span>
-          <span v-else>Lugares y límites territoriales activos &nbsp;·&nbsp; Satélite Esri</span>
+          <span v-if="departmentCode === 'PE-HUC'">{{ tr('Límites distritales y lugares', 'District boundaries and places') }} &nbsp;·&nbsp; MapBiomas 2025</span>
+          <span v-else>{{ tr('Lugares y límites territoriales activos · Satélite Esri', 'Places and territorial boundaries · Esri satellite') }}</span>
         </div>
         <div v-else class="thematic-bottom">
-          <span>Verde &lt;25% · amarillo 25–74% · naranja 75–89% · rojo ≥90%</span>
-          <span>Índice departamental experimental armonizado</span>
+          <span>{{ tr('Verde &lt;25% · amarillo 25–74% · naranja 75–89% · rojo ≥90%', 'Green &lt;25% · yellow 25–74% · orange 75–89% · red ≥90%') }}</span>
+          <span>{{ tr('Índice departamental experimental armonizado', 'Experimental harmonized departmental index') }}</span>
         </div>
         <p v-if="error && mode === 'observations'" class="tile-notice" role="alert">{{ error }}</p>
       </section>
@@ -779,21 +802,21 @@ function downloadGeoJSON() {
       <!-- Sidebar -->
       <aside class="detail-panel map-side-panel">
         <div class="map-side-heading">
-          <h1>{{ mode === 'observations' ? `Detección de incendios y quemas agrícolas` : `Actividad armonizada en ${departmentName}` }}</h1>
+          <h1>{{ mode === 'observations' ? tr('Detección de incendios y quemas agrícolas', 'Fire and agricultural burning detections') : `${tr('Actividad armonizada en', 'Harmonized activity in')} ${departmentName}` }}</h1>
         </div>
 
-        <div class="view-mode" role="group" aria-label="Visualización del mapa">
+        <div class="view-mode" role="group" :aria-label="tr('Visualización del mapa', 'Map view')">
           <button :class="{ active: mode === 'observations' }" :aria-pressed="mode === 'observations'" @click="mode = 'observations'">
-            Detecciones
+            {{ tr('Detecciones', 'Detections') }}
           </button>
           <button :class="{ active: mode === 'harmonized' }" :aria-pressed="mode === 'harmonized'" @click="mode = 'harmonized'">
-            Armonizado
+            {{ tr('Armonizado', 'Harmonized') }}
           </button>
         </div>
 
         <div class="map-toolbar huanuco-toolbar">
           <label>
-            Año
+            {{ tr('Año', 'Year') }}
             <select :value="year" @change="emit('update:year', Number(($event.target as HTMLSelectElement).value))">
               <option v-for="y in 27" :key="y" :value="2027 - y">{{ 2027 - y }}</option>
             </select>
@@ -801,10 +824,10 @@ function downloadGeoJSON() {
 
           <template v-if="mode === 'observations'">
             <label>
-              Mes
+              {{ tr('Mes', 'Month') }}
               <select v-model="month">
-                <option value="all">Todo el año</option>
-                <option v-for="(m, i) in months" :key="m" :value="String(i + 1)">{{ m }}</option>
+                <option value="all">{{ tr('Todo el año', 'All year') }}</option>
+                <option v-for="(m, i) in months" :key="m" :value="String(i + 1)">{{ language === 'en' ? new Intl.DateTimeFormat('en', { month: 'long', timeZone: 'UTC' }).format(new Date(Date.UTC(2020, i, 1))) : m }}</option>
               </select>
             </label>
             <label>
@@ -816,77 +839,77 @@ function downloadGeoJSON() {
               </select>
             </label>
             <label>
-              Confianza
+              {{ tr('Confianza', 'Confidence') }}
               <select v-model="confidence">
-                <option value="all">Todas</option>
-                <option value="high">Alta por sensor</option>
+                <option value="all">{{ tr('Todas', 'All') }}</option>
+                <option value="high">{{ tr('Alta por sensor', 'High by sensor') }}</option>
               </select>
             </label>
             <label>
-              Tipo NASA
+              {{ tr('Tipo NASA', 'NASA type') }}
               <select v-model="fireType">
-                <option value="all">Todos</option>
-                <option value="0">Vegetación</option>
-                <option value="1">Volcán</option>
-                <option value="2">Otra fuente terrestre</option>
-                <option value="3">Fuente marina</option>
-                <option value="unknown">No informado</option>
+                <option value="all">{{ tr('Todos', 'All') }}</option>
+                <option value="0">{{ tr('Vegetación', 'Vegetation') }}</option>
+                <option value="1">{{ tr('Volcán', 'Volcano') }}</option>
+                <option value="2">{{ tr('Otra fuente terrestre', 'Other land source') }}</option>
+                <option value="3">{{ tr('Fuente marina', 'Offshore source') }}</option>
+                <option value="unknown">{{ tr('No informado', 'Not reported') }}</option>
               </select>
             </label>
 
             <!-- MapBiomas Land Cover Filter (Huánuco) -->
             <label v-if="departmentCode === 'PE-HUC'">
-              Cobertura (MapBiomas)
+              {{ tr('Cobertura (MapBiomas)', 'Land cover (MapBiomas)') }}
               <select v-model="landCoverFilter">
-                <option value="all">Todas ({{ data.length }})</option>
-                <option value="forest">🌲 Bosque Natural ({{ landCoverCounts.forest }})</option>
-                <option value="agriculture">🌾 Agropecuario ({{ landCoverCounts.agriculture }})</option>
-                <option value="mixed">🏞️ Mosaico Mixto ({{ landCoverCounts.mixed }})</option>
-                <option value="other">🍂 Otras ({{ landCoverCounts.other }})</option>
+                <option value="all">{{ tr('Todas', 'All') }} ({{ data.length }})</option>
+                <option value="forest">🌲 {{ tr('Bosque Natural', 'Natural forest') }} ({{ landCoverCounts.forest }})</option>
+                <option value="agriculture">🌾 {{ tr('Agropecuario', 'Agriculture') }} ({{ landCoverCounts.agriculture }})</option>
+                <option value="mixed">🏞️ {{ tr('Mosaico Mixto', 'Mixed mosaic') }} ({{ landCoverCounts.mixed }})</option>
+                <option value="other">🍂 {{ tr('Otras', 'Other') }} ({{ landCoverCounts.other }})</option>
               </select>
             </label>
 
-            <span class="toolbar-source"><MapPin :size="15" />{{ range.start }} a {{ range.end }} · UTC</span>
+            <span class="toolbar-source"><MapPin :size="15" />{{ range.start }} – {{ range.end }} · UTC</span>
           </template>
 
           <label v-else>
-            Semana
+            {{ tr('Semana', 'Week') }}
             <select v-model="weekStart" :disabled="!weeks.length">
-              <option v-if="!weeks.length" value="">Sin datos disponibles</option>
+              <option v-if="!weeks.length" value="">{{ tr('Sin datos disponibles', 'No data available') }}</option>
               <option v-for="w in weeks" :key="w.start" :value="w.start">
-                Semana {{ w.week }} · {{ w.start }} a {{ w.end }}
+                {{ tr('Semana', 'Week') }} {{ w.week }} · {{ w.start }} – {{ w.end }}
               </option>
             </select>
           </label>
         </div>
 
         <div v-if="mode === 'harmonized'" class="detail-body">
-          <h3>Resultado semanal experimental</h3>
-          <p>El color representa un único indicador para todo el departamento; no muestra puntos ni valores por celda.</p>
+          <h3>{{ tr('Resultado semanal experimental', 'Experimental weekly result') }}</h3>
+          <p>{{ tr('El color representa un único indicador para todo el departamento; no muestra puntos ni valores por celda.', 'The color represents one indicator for the entire department; it does not show points or values by cell.') }}</p>
           <template v-if="selectedWeek">
-            <p>MODIS: {{ selectedWeek.sensors.MODIS.cells ?? '—' }} celdas-día · percentil {{ percent(selectedWeek.sensors.MODIS.percentile) }}</p>
-            <p>VIIRS Suomi: {{ selectedWeek.sensors.VIIRS.cells ?? '—' }} celdas-día · percentil {{ percent(selectedWeek.sensors.VIIRS.percentile) }}</p>
+            <p>MODIS: {{ selectedWeek.sensors.MODIS.cells ?? '—' }} {{ tr('celdas-día · percentil', 'cell-days · percentile') }} {{ percent(selectedWeek.sensors.MODIS.percentile) }}</p>
+            <p>VIIRS Suomi: {{ selectedWeek.sensors.VIIRS.cells ?? '—' }} {{ tr('celdas-día · percentil', 'cell-days · percentile') }} {{ percent(selectedWeek.sensors.VIIRS.percentile) }}</p>
             <p>
-              Índice combinado: <strong>{{ percent(selectedWeek.combined) }}</strong> · diferencia: {{ percent(selectedWeek.disagreement) }}
+              {{ tr('Índice combinado:', 'Combined index:') }} <strong>{{ percent(selectedWeek.combined) }}</strong> · {{ tr('diferencia:', 'difference:') }} {{ percent(selectedWeek.disagreement) }}
             </p>
             <p v-if="selectedWeek.combined === null">
-              Sin comparación: semana incompleta, referencia insuficiente o demasiados empates.
+              {{ tr('Sin comparación: semana incompleta, referencia insuficiente o demasiados empates.', 'No comparison: incomplete week, insufficient baseline or too many ties.') }}
             </p>
           </template>
-          <p v-else>No hay datos semanales disponibles para este año.</p>
-          <p class="inline-note">Cuadrícula de 5 km; sin filtros de confianza ni tipo. No representa probabilidad de incendio.</p>
+          <p v-else>{{ tr('No hay datos semanales disponibles para este año.', 'No weekly data is available for this year.') }}</p>
+          <p class="inline-note">{{ tr('Cuadrícula de 5 km; sin filtros de confianza ni tipo. No representa probabilidad de incendio.', '5 km grid; no confidence or type filters. This is not a fire probability.') }}</p>
         </div>
 
         <div v-else-if="!selected" class="map-selection-hint">
           <MapPin :size="24" />
-          <h3>Explora el mapa</h3>
-          <p>Selecciona un foco en el visor para consultar su ubicación distrital, coordenadas y cobertura del suelo.</p>
+          <h3>{{ tr('Explora el mapa', 'Explore the map') }}</h3>
+          <p>{{ tr('Selecciona un foco en el visor para consultar su ubicación distrital, coordenadas y cobertura del suelo.', 'Select a hotspot to see its district, coordinates and land cover.') }}</p>
         </div>
 
         <div v-else class="detail-body">
           <div class="detail-header">
-            <h2>Detección {{ selected.sensor }}</h2>
-            <button class="icon-button" aria-label="Cerrar detalle" @click="selected = null"><X :size="18" /></button>
+            <h2>{{ tr('Detección', 'Detection') }} {{ selected.sensor }}</h2>
+            <button class="icon-button" :aria-label="tr('Cerrar detalle', 'Close details')" @click="selected = null"><X :size="18" /></button>
           </div>
 
           <!-- MapBiomas Contextual Badge -->
@@ -898,35 +921,35 @@ function downloadGeoJSON() {
             </div>
             <p class="badge-desc">{{ getLandCoverMeta(selected.land_cover).description }}</p>
             <div class="badge-footer">
-              <span>MapBiomas Perú Col. 4 (2025) · Resolución nativa 150 m</span>
+              <span>MapBiomas Perú Col. 4 (2025) · {{ tr('Resolución nativa', 'Native resolution') }} 150 m</span>
             </div>
           </div>
 
           <dl class="data-list">
             <div v-if="selectedDistrictName && departmentCode === 'PE-HUC'">
-              <dt>Distrito oficial (INEI)</dt>
+              <dt>{{ tr('Distrito oficial (INEI)', 'Official district (INEI)') }}</dt>
               <dd><strong>{{ selectedDistrictName }}</strong></dd>
             </div>
-            <div><dt>Fecha y hora UTC</dt><dd>{{ selected.acq_date }} · {{ selected.acq_time.padStart(4, '0') }}</dd></div>
-            <div><dt>Coordenadas</dt><dd>{{ selected.latitude.toFixed(4) }}, {{ selected.longitude.toFixed(4) }}</dd></div>
-            <div><dt>Satélite</dt><dd>{{ selected.satellite }}</dd></div>
-            <div><dt>Confianza</dt><dd>{{ selected.confidence }}</dd></div>
-            <div><dt>Tipo NASA</dt><dd>{{ selected.fire_type ?? 'No informado' }}</dd></div>
+            <div><dt>{{ tr('Fecha y hora UTC', 'UTC date and time') }}</dt><dd>{{ selected.acq_date }} · {{ selected.acq_time.padStart(4, '0') }}</dd></div>
+            <div><dt>{{ tr('Coordenadas', 'Coordinates') }}</dt><dd>{{ selected.latitude.toFixed(4) }}, {{ selected.longitude.toFixed(4) }}</dd></div>
+            <div><dt>{{ tr('Satélite', 'Satellite') }}</dt><dd>{{ selected.satellite }}</dd></div>
+            <div><dt>{{ tr('Confianza', 'Confidence') }}</dt><dd>{{ selected.confidence }}</dd></div>
+            <div><dt>{{ tr('Tipo NASA', 'NASA type') }}</dt><dd>{{ selected.fire_type ?? tr('No informado', 'Not reported') }}</dd></div>
             <div v-if="selected.land_cover && departmentCode === 'PE-HUC'">
-              <dt>Cobertura MapBiomas</dt>
+              <dt>{{ tr('Cobertura MapBiomas', 'MapBiomas land cover') }}</dt>
               <dd>{{ getLandCoverMeta(selected.land_cover).label }}</dd>
             </div>
-            <div><dt>Potencia radiativa (FRP)</dt><dd>{{ selected.frp ?? '—' }} MW</dd></div>
-            <div><dt>Temperatura de Brillo</dt><dd>{{ selected.brightness ?? '—' }} K</dd></div>
-            <div><dt>Producto</dt><dd>{{ selected.version }}</dd></div>
+            <div><dt>{{ tr('Potencia radiativa (FRP)', 'Fire radiative power (FRP)') }}</dt><dd>{{ selected.frp ?? '—' }} MW</dd></div>
+            <div><dt>{{ tr('Temperatura de Brillo', 'Brightness temperature') }}</dt><dd>{{ selected.brightness ?? '—' }} K</dd></div>
+            <div><dt>{{ tr('Producto', 'Product') }}</dt><dd>{{ selected.version }}</dd></div>
           </dl>
-          <p class="inline-note">Una detección es una anomalía térmica puntual registrada en el sobrevuelo satelital.</p>
+          <p class="inline-note">{{ tr('Una detección es una anomalía térmica puntual registrada en el sobrevuelo satelital.', 'A detection is a localized thermal anomaly recorded during a satellite overpass.') }}</p>
         </div>
       </aside>
     </div>
 
     <p class="map-source-note">
-      {{ mode === 'harmonized' ? `${departmentName} · indicador semanal experimental a escala departamental.` : `${departmentName} · datos originales NASA FIRMS · Nombres y límites territoriales oficiales.` }}
+      {{ mode === 'harmonized' ? `${departmentName} · ${tr('indicador semanal experimental a escala departamental.', 'experimental weekly indicator at departmental scale.')}` : `${departmentName} · ${tr('datos originales NASA FIRMS · Nombres y límites territoriales oficiales.', 'original NASA FIRMS data · Official place names and boundaries.')}` }}
     </p>
   </div>
 </template>

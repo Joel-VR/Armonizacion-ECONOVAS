@@ -19,6 +19,7 @@ import HistoryView from './components/HistoryView.vue'
 import MethodologyModal from './components/MethodologyModal.vue'
 import { type Analysis } from './huanuco'
 import { apiUrl } from './api'
+import { language, tr } from './language'
 
 const view = ref<'map' | 'calendar' | 'history'>('map')
 const refresh = ref(0)
@@ -134,25 +135,25 @@ watch(
       )
       if (!response.ok) {
         const body = await response.json().catch(() => ({}))
-        throw new Error(body.detail || 'No se pudieron consultar los indicadores semanales.')
+        throw new Error(language.value === 'en' ? 'Could not load weekly indicators.' : body.detail || 'No se pudieron consultar los indicadores semanales.')
       }
       const result = await response.json()
       if (!controller.signal.aborted) weekly.value = result
     } catch (e) {
       if (!controller.signal.aborted) {
         weekly.value = null
-        weeklyError.value = e instanceof Error ? e.message : 'Error de conexión.'
+        weeklyError.value = e instanceof Error ? e.message : tr('Error de conexión.', 'Connection error.')
       }
     }
   },
   { immediate: true }
 )
 
-const nav = [
-  { id: 'map' as const, title: 'Mapa principal', icon: Map },
-  { id: 'calendar' as const, title: 'Calendario de Quemas', icon: CalendarDays },
-  { id: 'history' as const, title: 'Análisis histórico', icon: ChartNoAxesCombined },
-]
+const nav = computed(() => [
+  { id: 'map' as const, title: language.value === 'en' ? 'Main map' : 'Mapa principal', icon: Map },
+  { id: 'calendar' as const, title: language.value === 'en' ? 'Fire calendar' : 'Calendario de Quemas', icon: CalendarDays },
+  { id: 'history' as const, title: language.value === 'en' ? 'Historical analysis' : 'Análisis histórico', icon: ChartNoAxesCombined },
+])
 
 function onNavigateToMap({ year: yr, month: m }: { year: number; month: number }) {
   year.value = yr
@@ -162,12 +163,12 @@ function onNavigateToMap({ year: yr, month: m }: { year: number; month: number }
 </script>
 
 <template>
-  <a href="#main" class="skip-link">Saltar al contenido</a>
+  <a href="#main" class="skip-link">{{ tr('Saltar al contenido', 'Skip to content') }}</a>
   <div class="app-shell huanuco-app thematic-app" :class="{ 'map-page': view === 'map' }">
     <!-- Topbar Navigation -->
     <header class="topbar">
-      <a class="brand turki-brand" href="#" @click.prevent="view = 'map'" aria-label="T'UKRI · Inicio">
-        <span class="brand-logo"><img src="/brand/turki.svg" alt="Mascota de T'UKRI" /></span>
+      <a class="brand turki-brand" href="#" @click.prevent="view = 'map'" :aria-label="tr(`T'UKRI · Inicio`, `T'UKRI · Home`)">
+        <span class="brand-logo"><img src="/brand/turki.svg" :alt="tr(`Mascota de T'UKRI`, `T'UKRI mascot`)" /></span>
         <span class="brand-name">T'UKRI</span>
         <span class="brand-location">
           {{ currentDepartmentName }}<small>Perú · {{ year }}</small>
@@ -181,11 +182,11 @@ function onNavigateToMap({ year: yr, month: m }: { year: number; month: number }
           class="dept-trigger"
           aria-haspopup="listbox"
           :aria-expanded="isDeptOpen"
-          title="Seleccionar departamento del Perú"
+          :title="tr('Seleccionar departamento del Perú', 'Select a department of Peru')"
           @click.stop="toggleDeptDropdown"
         >
           <span class="aoi-label">
-            <MapPin :size="13" /> Departamento:
+            <MapPin :size="13" /> {{ tr('Departamento:', 'Department:') }}
           </span>
           <span class="dept-current-name">{{ currentDepartmentName }}</span>
           <ChevronDown :size="13" class="dept-chevron" :class="{ 'rotate': isDeptOpen }" />
@@ -200,7 +201,7 @@ function onNavigateToMap({ year: yr, month: m }: { year: number; month: number }
               v-model="deptSearch"
               type="text"
               class="dept-search-input"
-              placeholder="Buscar departamento..."
+              :placeholder="tr('Buscar departamento...', 'Search departments...')"
               @keydown.esc="isDeptOpen = false"
               @keydown.enter.prevent="selectFirstFiltered"
             />
@@ -208,7 +209,7 @@ function onNavigateToMap({ year: yr, month: m }: { year: number; month: number }
               v-if="deptSearch"
               type="button"
               class="clear-search-btn"
-              title="Borrar búsqueda"
+              :title="tr('Borrar búsqueda', 'Clear search')"
               @click="deptSearch = ''"
             >
               <X :size="12" />
@@ -230,17 +231,17 @@ function onNavigateToMap({ year: yr, month: m }: { year: number; month: number }
               <Check v-if="d.code === currentDepartment" :size="14" class="check-icon" />
             </li>
             <li v-if="filteredDepartments.length === 0" class="dept-no-results">
-              No se encontró "{{ deptSearch }}"
+              {{ tr('No se encontró', 'No results for') }} "{{ deptSearch }}"
             </li>
           </ul>
 
           <div class="dept-dropdown-footer">
-            <span>25 departamentos · Ámbito nacional</span>
+            <span>{{ tr('25 departamentos · Ámbito nacional', '25 departments · Nationwide') }}</span>
           </div>
         </div>
       </div>
 
-      <nav aria-label="Navegación principal">
+      <nav :aria-label="tr('Navegación principal', 'Main navigation')">
         <button
           v-for="item in nav"
           :key="item.id"
@@ -253,22 +254,29 @@ function onNavigateToMap({ year: yr, month: m }: { year: number; month: number }
       </nav>
 
       <div class="header-right-tools">
+        <label>
+          <span class="sr-only">Language / Idioma</span>
+          <select v-model="language" aria-label="Language / Idioma" class="methodology-pill-btn">
+            <option value="en">English</option>
+            <option value="es">Español</option>
+          </select>
+        </label>
         <!-- Methodology Trigger -->
         <button
           class="methodology-pill-btn"
-          aria-label="Metodología NASA"
-          title="Ver metodología de armonización y sensores"
+          :aria-label="tr('Metodología NASA', 'NASA methodology')"
+          :title="tr('Ver metodología de armonización y sensores', 'View harmonization and sensor methodology')"
           @click="showMethodology = true"
         >
           <BookOpen :size="15" />
-          <span>Metodología NASA</span>
+          <span>{{ language === 'en' ? 'NASA methodology' : 'Metodología NASA' }}</span>
         </button>
 
         <!-- Refresh Button -->
         <button
           class="icon-button header-refresh"
-          aria-label="Actualizar datos"
-          title="Actualizar datos"
+          :aria-label="tr('Actualizar datos', 'Refresh data')"
+          :title="tr('Actualizar datos', 'Refresh data')"
           @click="refresh++"
         >
           <RefreshCw :size="18" />
@@ -282,12 +290,12 @@ function onNavigateToMap({ year: yr, month: m }: { year: number; month: number }
           <h1>
             {{
               view === 'calendar'
-                ? `Calendario de Actividad de Fuego · ${currentDepartmentName}`
-                : `Trayectoria Histórica y Detección de Anomalías · ${currentDepartmentName}`
+                ? `${tr('Calendario de Actividad de Fuego', 'Fire Activity Calendar')} · ${currentDepartmentName}`
+                : `${tr('Trayectoria Histórica y Detección de Anomalías', 'Historical Trends and Anomaly Detection')} · ${currentDepartmentName}`
             }}
           </h1>
           <p class="heading-sub">
-            Sistema de Armonización Satelital MODIS & VIIRS · NASA Space Apps Challenge
+            {{ tr('Sistema de Armonización Satelital MODIS & VIIRS', 'MODIS & VIIRS Satellite Harmonization System') }} · NASA Space Apps Challenge
           </p>
         </div>
       </div>
@@ -331,8 +339,7 @@ function onNavigateToMap({ year: yr, month: m }: { year: number; month: number }
 
     <footer class="app-footer">
       <p>
-        <Info :size="15" />Una detección térmica satelital no equivale a un incendio confirmado en campo.
-        Índices armonizados generados mediante la metodología oficial NASA Space Apps.
+        <Info :size="15" />{{ tr('Una detección térmica satelital no equivale a un incendio confirmado en campo. Índices armonizados generados mediante la metodología oficial NASA Space Apps.', 'A satellite thermal detection does not constitute a fire confirmed on the ground. Harmonized indices generated using the official NASA Space Apps methodology.') }}
       </p>
       <span>NASA FIRMS · MODIS C6.1 · VIIRS C2 · UTC</span>
     </footer>

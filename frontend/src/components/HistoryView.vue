@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { apiUrl } from '../api'
+import { language, tr } from '../language'
 import { use, init, type EChartsType } from 'echarts/core'
 import { LineChart, BarChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent, LegendComponent, MarkAreaComponent, MarkLineComponent } from 'echarts/components'
@@ -78,7 +79,7 @@ function drawChart() {
   if (!chartElement.value || !chart) return
 
   const items = weeks.value
-  const labels = items.map(w => `Sem ${w.week}`)
+  const labels = items.map(w => `${tr('Sem', 'Wk')} ${w.week}`)
 
   // Monthly historical median approximated to weekly timeline
   const monthlyMedians = calendarData.value?.months || []
@@ -110,7 +111,7 @@ function drawChart() {
           const idx = params[0]?.dataIndex
           const item = items[idx]
           if (!item) return ''
-          let html = `<div style="font-size:12px;font-weight:700;margin-bottom:4px;">Semana ${item.week} (${item.start} a ${item.end})</div>`
+          let html = `<div style="font-size:12px;font-weight:700;margin-bottom:4px;">${tr('Semana', 'Week')} ${item.week} (${item.start} – ${item.end})</div>`
           params.forEach(p => {
             if (p.value !== undefined && p.value !== null) {
               html += `<div style="display:flex;justify-content:space-between;gap:12px;color:${p.color};font-size:11px;">
@@ -123,7 +124,7 @@ function drawChart() {
       },
       legend: {
         top: 8,
-        data: ['Índice Armonizado (Año Actual)', 'Mediana Histórica (2016–2024)', 'Banda Normal (P25 - P75)']
+        data: [tr('Índice Armonizado (Año Actual)', 'Harmonized index (current year)'), tr('Mediana Histórica (2016–2024)', 'Historical median (2016–2024)'), tr('Banda Normal (P25 - P75)', 'Normal band (P25 - P75)')]
       },
       grid: { top: 50, left: 55, right: 30, bottom: 40 },
       xAxis: {
@@ -134,7 +135,7 @@ function drawChart() {
       },
       yAxis: {
         type: 'value',
-        name: 'Índice de Actividad (%)',
+        name: tr('Índice de Actividad (%)', 'Activity index (%)'),
         max: 100,
         min: 0,
         axisLabel: { formatter: '{value}%', color: '#64748b' },
@@ -142,7 +143,7 @@ function drawChart() {
       },
       series: [
         {
-          name: 'Banda Normal (P25 - P75)',
+          name: tr('Banda Normal (P25 - P75)', 'Normal band (P25 - P75)'),
           type: 'line',
           data: baselineP75,
           lineStyle: { opacity: 0 },
@@ -150,7 +151,7 @@ function drawChart() {
           symbol: 'none'
         },
         {
-          name: 'Banda Normal (P25 - P75)',
+          name: tr('Banda Normal (P25 - P75)', 'Normal band (P25 - P75)'),
           type: 'line',
           data: baselineP75.map((v, i) => Math.max(0, v - baselineP25[i])),
           lineStyle: { opacity: 0 },
@@ -159,7 +160,7 @@ function drawChart() {
           symbol: 'none'
         },
         {
-          name: 'Mediana Histórica (2016–2024)',
+          name: tr('Mediana Histórica (2016–2024)', 'Historical median (2016–2024)'),
           type: 'line',
           data: baselineMedians,
           lineStyle: { color: '#94a3b8', width: 2, type: 'dashed' },
@@ -167,7 +168,7 @@ function drawChart() {
           symbol: 'none'
         },
         {
-          name: 'Índice Armonizado (Año Actual)',
+          name: tr('Índice Armonizado (Año Actual)', 'Harmonized index (current year)'),
           type: 'line',
           data: harmonizedData,
           smooth: true,
@@ -178,8 +179,8 @@ function drawChart() {
             itemStyle: { color: 'rgba(220, 38, 38, 0.06)' },
             data: [
               [
-                { name: 'Temporada Crítica Habitual', xAxis: 'Sem 27' },
-                { xAxis: 'Sem 43' }
+                { name: tr('Temporada Crítica Habitual', 'Usual critical season'), xAxis: `${tr('Sem', 'Wk')} 27` },
+                { xAxis: `${tr('Sem', 'Wk')} 43` }
               ]
             ]
           }
@@ -205,7 +206,7 @@ function drawChart() {
       },
       yAxis: {
         type: 'value',
-        name: 'Celdas-Día Detectadas',
+        name: tr('Celdas-Día Detectadas', 'Detected cell-days'),
         axisLabel: { color: '#64748b' },
         splitLine: { lineStyle: { color: '#f1f5f9', type: 'dashed' } }
       },
@@ -245,10 +246,10 @@ function drawChart() {
           const item = items[idx]
           const val = anomalies[idx]
           if (val === null) return ''
-          return `<strong>Semana ${item.week}</strong>: Desviación de ${val > 0 ? '+' : ''}${val}% respecto a la mediana histórica`
+          return `<strong>${tr('Semana', 'Week')} ${item.week}</strong>: ${tr('Desviación de', 'Deviation of')} ${val > 0 ? '+' : ''}${val}% ${tr('respecto a la mediana histórica', 'from the historical median')}`
         }
       },
-      legend: { top: 8, data: ['Desviación vs Mediana Histórica (%)'] },
+      legend: { top: 8, data: [tr('Desviación vs Mediana Histórica (%)', 'Deviation from historical median (%)')] },
       grid: { top: 50, left: 60, right: 30, bottom: 40 },
       xAxis: {
         type: 'category',
@@ -258,13 +259,13 @@ function drawChart() {
       },
       yAxis: {
         type: 'value',
-        name: 'Desviación (%)',
+        name: tr('Desviación (%)', 'Deviation (%)'),
         axisLabel: { formatter: '{value}%', color: '#64748b' },
         splitLine: { lineStyle: { color: '#f1f5f9', type: 'dashed' } }
       },
       series: [
         {
-          name: 'Desviación vs Mediana Histórica (%)',
+          name: tr('Desviación vs Mediana Histórica (%)', 'Deviation from historical median (%)'),
           type: 'bar',
           data: anomalies.map(val => ({
             value: val,
@@ -279,7 +280,7 @@ function drawChart() {
   }
 }
 
-watch([weeks, chartMode, () => props.year], async () => {
+watch([weeks, chartMode, language, () => props.year], async () => {
   await nextTick()
   drawChart()
 })
@@ -308,39 +309,39 @@ function downloadHistoricalCSV() {
     <!-- Header with Controls -->
     <div class="history-topbar">
       <div>
-        <span class="eyebrow"><TrendingUp :size="14" /> ANÁLISIS HISTÓRICO Y TENDENCIAS</span>
-        <h2>Trayectoria del Fuego y Detección de Anomalías</h2>
+        <span class="eyebrow"><TrendingUp :size="14" /> {{ tr('ANÁLISIS HISTÓRICO Y TENDENCIAS', 'HISTORICAL ANALYSIS AND TRENDS') }}</span>
+        <h2>{{ tr('Trayectoria del Fuego y Detección de Anomalías', 'Fire Trends and Anomaly Detection') }}</h2>
         <p>
-          Comparación directa del año {{ year }} contra la línea base histórica del departamento.
+          {{ tr('Comparación directa del año', 'Direct comparison of') }} {{ year }} {{ tr('contra la línea base histórica del departamento.', 'against the department’s historical baseline.') }}
         </p>
       </div>
 
       <div class="topbar-actions">
         <!-- Year Selector -->
         <label class="year-picker">
-          Año:
+          {{ tr('Año:', 'Year:') }}
           <select :value="year" @change="emit('update:year', Number(($event.target as HTMLSelectElement).value))">
             <option v-for="y in 27" :key="y" :value="2027 - y">{{ 2027 - y }}</option>
           </select>
           <span class="era-indicator" :class="year < 2012 ? 'ind-modis' : year <= 2024 ? 'ind-dual' : 'ind-viirs'">
-            {{ year < 2012 ? 'Era MODIS' : year <= 2024 ? 'Era Dual MODIS+VIIRS' : 'Era VIIRS' }}
+            {{ year < 2012 ? tr('Era MODIS', 'MODIS era') : year <= 2024 ? tr('Era Dual MODIS+VIIRS', 'MODIS+VIIRS dual era') : tr('Era VIIRS', 'VIIRS era') }}
           </span>
         </label>
 
         <!-- Mode Toggle -->
         <div class="view-mode">
           <button :class="{ active: chartMode === 'harmonized' }" @click="chartMode = 'harmonized'">
-            Índice Armonizado
+            {{ tr('Índice Armonizado', 'Harmonized index') }}
           </button>
           <button :class="{ active: chartMode === 'sensors' }" @click="chartMode = 'sensors'">
             MODIS vs VIIRS
           </button>
           <button :class="{ active: chartMode === 'anomaly' }" @click="chartMode = 'anomaly'">
-            Anomalías (%)
+            {{ tr('Anomalías (%)', 'Anomalies (%)') }}
           </button>
         </div>
 
-        <button class="icon-text-btn" @click="downloadHistoricalCSV" title="Exportar serie a CSV">
+        <button class="icon-text-btn" @click="downloadHistoricalCSV" :title="tr('Exportar serie a CSV', 'Export series to CSV')">
           <Download :size="16" />
           <span>CSV</span>
         </button>
@@ -350,31 +351,31 @@ function downloadHistoricalCSV() {
     <!-- KPI Summary Row -->
     <div class="history-kpis">
       <article class="surface kpi-box">
-        <small>Índice Promedio del Año</small>
+        <small>{{ tr('Índice Promedio del Año', 'Average annual index') }}</small>
         <strong>{{ percent(yearStats.avgIndex) }}</strong>
-        <span class="subtext">Media sobre las 52 semanas</span>
+        <span class="subtext">{{ tr('Media sobre las 52 semanas', 'Average over 52 weeks') }}</span>
       </article>
 
       <article class="surface kpi-box">
-        <small>Semanas en Nivel Crítico (≥75%)</small>
+        <small>{{ tr('Semanas en Nivel Crítico (≥75%)', 'Weeks at critical level (≥75%)') }}</small>
         <strong :style="{ color: yearStats.criticalWeeks > 0 ? '#dc2626' : '#166534' }">
-          {{ yearStats.criticalWeeks }} semanas
+          {{ yearStats.criticalWeeks }} {{ tr('semanas', 'weeks') }}
         </strong>
-        <span class="subtext">Actividad extrema sobre el percentil 75</span>
+        <span class="subtext">{{ tr('Actividad extrema sobre el percentil 75', 'Extreme activity above the 75th percentile') }}</span>
       </article>
 
       <article class="surface kpi-box">
-        <small>Concordancia entre Sensores</small>
+        <small>{{ tr('Concordancia entre Sensores', 'Sensor agreement') }}</small>
         <strong>{{ percent(yearStats.agreement) }}</strong>
         <span class="subtext">1 - |MODIS% - VIIRS%|</span>
       </article>
 
       <article class="surface kpi-box">
-        <small>Huella de Observaciones en Bruto</small>
+        <small>{{ tr('Huella de Observaciones en Bruto', 'Raw observation footprint') }}</small>
         <strong>
-          {{ yearStats.totalViirs.toLocaleString('es-PE') }} VIIRS / {{ yearStats.totalModis.toLocaleString('es-PE') }} MODIS
+          {{ yearStats.totalViirs.toLocaleString(language === 'en' ? 'en-US' : 'es-PE') }} VIIRS / {{ yearStats.totalModis.toLocaleString(language === 'en' ? 'en-US' : 'es-PE') }} MODIS
         </strong>
-        <span class="subtext">Ratio sensor: {{ Math.round((yearStats.totalViirs / Math.max(1, yearStats.totalModis)) * 10) / 10 }}x</span>
+        <span class="subtext">{{ tr('Ratio sensor:', 'Sensor ratio:') }} {{ Math.round((yearStats.totalViirs / Math.max(1, yearStats.totalModis)) * 10) / 10 }}x</span>
       </article>
     </div>
 
@@ -382,21 +383,21 @@ function downloadHistoricalCSV() {
     <section class="surface chart-container">
       <div class="chart-caption">
         <div v-if="chartMode === 'harmonized'">
-          <h3>Serie Armonizada vs Rango de Referencia 2016–2024</h3>
+          <h3>{{ tr('Serie Armonizada vs Rango de Referencia 2016–2024', 'Harmonized series vs 2016–2024 reference range') }}</h3>
           <p>
-            La línea roja muestra la trayectoria unificada de fuego en {{ year }}. El área sombreada delimita la banda normal estacional (percentiles 25–75). Superar esta banda indica un comportamiento anómalo.
+            {{ tr(`La línea roja muestra la trayectoria unificada de fuego en ${year}. El área sombreada delimita la banda normal estacional (percentiles 25–75). Superar esta banda indica un comportamiento anómalo.`, `The red line shows the combined fire trend in ${year}. The shaded area marks the normal seasonal band (25th–75th percentiles). Values above it indicate anomalous activity.`) }}
           </p>
         </div>
         <div v-else-if="chartMode === 'sensors'">
-          <h3>Comparación de Conteos en Bruto: ¿Por qué es necesaria la armonización?</h3>
+          <h3>{{ tr('Comparación de Conteos en Bruto: ¿Por qué es necesaria la armonización?', 'Raw count comparison: Why is harmonization needed?') }}</h3>
           <p>
-            VIIRS detecta sistemáticamente 3 a 5 veces más celdas de fuego que MODIS debido a su pixel de 375 m vs 1 km. Sin armonización, las series históricas sufrirían un salto artificial al cambiar de sensor.
+            {{ tr('VIIRS detecta sistemáticamente 3 a 5 veces más celdas de fuego que MODIS debido a su pixel de 375 m vs 1 km. Sin armonización, las series históricas sufrirían un salto artificial al cambiar de sensor.', 'VIIRS consistently detects three to five times more fire cells than MODIS because its pixels are 375 m rather than 1 km. Without harmonization, historical series would show an artificial jump when sensors change.') }}
           </p>
         </div>
         <div v-else>
-          <h3>Porcentaje de Anomalía Semanal Respecto a la Mediana</h3>
+          <h3>{{ tr('Porcentaje de Anomalía Semanal Respecto a la Mediana', 'Weekly anomaly percentage relative to the median') }}</h3>
           <p>
-            Barras rojas denotan semanas con exceso de fuego (+30% sobre lo habitual); barras verdes o azules denotan semanas dentro o por debajo de la mediana.
+            {{ tr('Barras rojas denotan semanas con exceso de fuego (+30% sobre lo habitual); barras verdes o azules denotan semanas dentro o por debajo de la mediana.', 'Red bars indicate weeks with excess fire activity (+30% above normal); green or blue bars indicate weeks at or below the median.') }}
           </p>
         </div>
       </div>
@@ -408,20 +409,20 @@ function downloadHistoricalCSV() {
     <div class="surface insights-panel">
       <div class="insight-header">
         <Scale :size="18" />
-        <h4>Interpretación Científica para Gestores y Tomadores de Decisión</h4>
+        <h4>{{ tr('Interpretación Científica para Gestores y Tomadores de Decisión', 'Scientific interpretation for managers and decision-makers') }}</h4>
       </div>
       <div class="insight-grid">
         <div class="insight-item">
-          <strong>1. Relevo de Sensores Garantizado</strong>
-          <p>Cuando los satélites Terra y Aqua dejen de operar, el índice armonizado continuará funcionando con VIIRS calibrado a la misma escala histórica sin rotura en el registro multianual.</p>
+          <strong>{{ tr('1. Relevo de Sensores Garantizado', '1. Sensor continuity') }}</strong>
+          <p>{{ tr('Cuando los satélites Terra y Aqua dejen de operar, el índice armonizado continuará funcionando con VIIRS calibrado a la misma escala histórica sin rotura en el registro multianual.', 'When Terra and Aqua stop operating, the harmonized index will continue using VIIRS calibrated to the same historical scale, without a break in the multiyear record.') }}</p>
         </div>
         <div class="insight-item">
-          <strong>2. Alerta Temprana en Anomalías</strong>
-          <p>Toda semana con desviación superior a +50% en temporada seca representa un riesgo inminente de propagación descontrolada de incendios forestales en la región.</p>
+          <strong>{{ tr('2. Alerta Temprana en Anomalías', '2. Early anomaly alerts') }}</strong>
+          <p>{{ tr('Toda semana con desviación superior a +50% en temporada seca representa un riesgo inminente de propagación descontrolada de incendios forestales en la región.', 'A week with a deviation above +50% during the dry season represents an imminent risk of uncontrolled wildfire spread in the region.') }}</p>
         </div>
         <div class="insight-item">
-          <strong>3. Métrica Neutra de Píxel</strong>
-          <p>El uso de la cuadrícula de 5 km celda-día evita la inflación artificial de conteos por múltiples detecciones de un mismo foco en pasadas adyacentes de VIIRS.</p>
+          <strong>{{ tr('3. Métrica Neutra de Píxel', '3. Pixel-neutral metric') }}</strong>
+          <p>{{ tr('El uso de la cuadrícula de 5 km celda-día evita la inflación artificial de conteos por múltiples detecciones de un mismo foco en pasadas adyacentes de VIIRS.', 'The 5 km cell-day grid prevents artificial inflation from multiple detections of the same hotspot on adjacent VIIRS overpasses.') }}</p>
         </div>
       </div>
     </div>
