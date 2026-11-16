@@ -3,11 +3,18 @@ import os
 
 import psycopg
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 from psycopg.rows import dict_row
 
 from .database import database_config
 
 app = FastAPI(title="T'UKRI API", version='0.2.0')
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=['https://armonizacion-econovas.pages.dev'],
+    allow_methods=['GET'],
+    allow_headers=['*'],
+)
 
 
 @app.get('/api/huanuco/events/analysis')

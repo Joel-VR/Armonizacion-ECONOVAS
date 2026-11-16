@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { apiUrl } from '../api'
 import * as maplibregl from 'maplibre-gl'
 import type { GeoJSONSource } from 'maplibre-gl'
 import mapWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
@@ -265,7 +266,7 @@ watch(
         ? '/api/huanuco/observations?' + q
         : `/api/departments/${props.departmentCode}/points?${q}`
 
-      const response = await fetch(endpoint, { signal: active.signal })
+      const response = await fetch(apiUrl(endpoint), { signal: active.signal })
       if (!response.ok) {
         const body = await response.json().catch(() => ({}))
         throw new Error(body.detail || 'No se pudieron consultar las observaciones.')

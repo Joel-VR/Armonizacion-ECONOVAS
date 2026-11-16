@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { apiUrl } from '../api'
 import { use, init, type EChartsType } from 'echarts/core'
 import { LineChart, BarChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent, LegendComponent, MarkAreaComponent, MarkLineComponent } from 'echarts/components'
@@ -38,7 +39,7 @@ const loadingCal = ref(false)
 async function fetchCalendar() {
   loadingCal.value = true
   try {
-    const res = await fetch(`/api/departments/${props.departmentCode}/calendar`)
+    const res = await fetch(apiUrl(`/api/departments/${props.departmentCode}/calendar`))
     if (res.ok) calendarData.value = await res.json()
   } catch {
     // fallback
@@ -298,7 +299,7 @@ onUnmounted(() => {
 })
 
 function downloadHistoricalCSV() {
-  window.open(`/api/departments/${props.departmentCode}/calendar/export.csv`, '_blank')
+  window.open(apiUrl(`/api/departments/${props.departmentCode}/calendar/export.csv`), '_blank')
 }
 </script>
 

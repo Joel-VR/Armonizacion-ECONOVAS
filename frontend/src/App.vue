@@ -18,6 +18,7 @@ import CalendarView from './components/CalendarView.vue'
 import HistoryView from './components/HistoryView.vue'
 import MethodologyModal from './components/MethodologyModal.vue'
 import { type Analysis } from './huanuco'
+import { apiUrl } from './api'
 
 const view = ref<'map' | 'calendar' | 'history'>('map')
 const refresh = ref(0)
@@ -104,7 +105,7 @@ function handleClickOutside(event: MouseEvent) {
 onMounted(async () => {
   window.addEventListener('click', handleClickOutside)
   try {
-    const res = await fetch('/api/departments')
+    const res = await fetch(apiUrl('/api/departments'))
     if (res.ok) {
       const data = await res.json()
       if (data.data?.length) {
@@ -128,7 +129,7 @@ watch(
     weeklyError.value = ''
     try {
       const response = await fetch(
-        `/api/departments/${currentDepartment.value}/analysis?year=${year.value}&grid=5&confidence=all&fire_type=all`,
+        apiUrl(`/api/departments/${currentDepartment.value}/analysis?year=${year.value}&grid=5&confidence=all&fire_type=all`),
         { signal: controller.signal }
       )
       if (!response.ok) {

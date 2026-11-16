@@ -33,6 +33,17 @@ class DatabaseConfigTest(unittest.TestCase):
         self.assertEqual(config['port'], 5432)
         self.assertEqual(config['password'], 'secret')
 
+    def test_neon_does_not_use_local_credentials(self):
+        variables = {'DB_DATA_SOURCE': 'armonizados', 'DB_HOST': 'localhost',
+                     'DB_PORT': '5432', 'DB_NAME': 'local', 'DB_USER': 'postgres',
+                     'DB_PASSWORD': 'local-secret', 'PGHOST': 'example.neon.tech',
+                     'PGDATABASE': 'neon', 'PGPASSWORD': 'neon-secret'}
+        with patch.dict(os.environ, variables, clear=True):
+            with self.assertRaisesRegex(ValueError, 'PGUSER'):
+                database_config()
+            with patch.dict(os.environ, {'PGUSER': 'neon-user'}):
+                self.assertEqual(database_config()['user'], 'neon-user')
+
     def test_missing_and_invalid_port(self):
         with patch.dict(os.environ, {}, clear=True), self.assertRaises(ValueError):
             database_config()

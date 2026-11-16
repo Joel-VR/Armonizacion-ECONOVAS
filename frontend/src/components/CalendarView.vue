@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
+import { apiUrl } from '../api'
 import {
   Calendar,
   Flame,
@@ -48,7 +49,7 @@ async function fetchCalendar() {
   loading.value = true
   error.value = ''
   try {
-    const res = await fetch(`/api/departments/${props.departmentCode}/calendar`)
+    const res = await fetch(apiUrl(`/api/departments/${props.departmentCode}/calendar`))
     if (!res.ok) throw new Error('No se pudo obtener el calendario de quemas.')
     const data: BurnCalendarData = await res.json()
     calendarData.value = data
@@ -108,7 +109,7 @@ function goToMap() {
 }
 
 function downloadCalendarCSV() {
-  window.open(`/api/departments/${props.departmentCode}/calendar/export.csv`, '_blank')
+  window.open(apiUrl(`/api/departments/${props.departmentCode}/calendar/export.csv`), '_blank')
 }
 </script>
 
