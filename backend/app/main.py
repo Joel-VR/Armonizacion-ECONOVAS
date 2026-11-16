@@ -11,7 +11,7 @@ from .database import database_config
 app = FastAPI(title="T'UKRI API", version='0.2.0')
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=['https://armonizacion-econovas.pages.dev'],
+    allow_origins=['https://armonizacion-econovas.pages.dev', 'https://tukry.earth'],
     allow_origin_regex=r'https://([a-z0-9-]+\.)?armonizacion-econovas\.pages\.dev',
     allow_methods=['*'],
     allow_headers=['*'],
